@@ -1,0 +1,64 @@
+{
+  "name": "cork-labs.bot.bk",
+  "version": "0.0.1",
+  "description": "Backend code for Cork Labs helper bot.",
+  "author": {
+    "name": "Cork Labs",
+    "url": "http://cork-labs.org/"
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "http://cork-labs.mit-license.org/"
+    }
+  ],
+  "keywords": [],
+  "homepage": "http://github.com/cork-labs/cork-labs.bot.bk",
+  "bugs": "https://github.com/cork-labs/cork-labs.bot.bk/issues",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/cork-labs/cork-labs.bot.bk.git"
+  },
+  "readmeFilename": "README.md",
+  "engines": {
+    "node": "0.10.x",
+    "npm": "1.2.x"
+  },
+  "scripts": {
+    "start": "NODE_ENV=development ./node_modules/.bin/nodemon server.js",
+    "test": "NODE_ENV=test ./node_modules/.bin/mocha --reporter spec --timeout 10000 test/test-*.js"
+  },
+  "dependencies": {
+    "express": "4.4.x",
+    "morgan": "~1.1.1",
+    "body-parser": "1.3.x",
+    "compression": "1.0.x",
+    "cookie-parser": "1.1.x",
+    "express-session": "~1.2.1",
+    "connect-mongo": "~0.4.1",
+    "serve-static": "1.2.x",
+    "jade": "latest",
+    "mongoose": "latest",
+    "request": "latest",
+    "winston": "latest",
+    "notifier": "latest",
+    "async": "latest",
+    "moment": "~2.6.0",
+    "github": "~0.1.16",
+    "nodegit": "~0.1.4",
+    "when": "~3.2.3",
+    "amqplib": "~0.2.0",
+    "rimraf": "~2.2.8",
+    "gift": "~0.4.2",
+    "nodegrep": "~0.1.2",
+    "node-commandline": "~0.2.0",
+    "node.extend": "~1.0.10",
+    "mkdirp": "~0.5.0"
+  },
+  "devDependencies": {
+    "supertest": "latest",
+    "should": "latest",
+    "mocha": "latest",
+    "nodemon": "latest"
+  }
+}

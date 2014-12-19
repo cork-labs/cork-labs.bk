@@ -1,0 +1,28 @@
+# temp files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+*~
+._*
+*.swp
+.Spotlight-V100
+.Trashes
+npm-debug.log
+.sass-cache
+
+# npm and bower
+/node_modules/
+/vendor/
+
+# builds, tests and docs
+/build/
+/coverage/
+/tmp/
+/var/
+test-results.xml
+
+# certificates
+*.csr
+*.crt
+*.key
