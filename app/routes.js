@@ -2,6 +2,7 @@
  * Controllers
  */
 var project = require('../app/controllers/project');
+var cors = require('../app/controllers/middlewares/cors');
 
 /**
  * @param {object} app    Instance of Express app.
@@ -18,10 +19,12 @@ var addRoutes = function (app, config) {
     //     .post(project.create);
 
     app.route('/project/:projectId')
+        .get(cors.all)
         .get(project.loadProjectById)
         .get(project.get);
 
     app.route('/project/:projectId/versions')
+        .get(cors.all)
         .get(project.loadProjectById)
         .get(project.getProjectVersions);
 
