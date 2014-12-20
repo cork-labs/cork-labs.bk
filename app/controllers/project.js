@@ -20,6 +20,7 @@ function map(model) {
     var ret = {
         id: model._id,
         name: model.name,
+        repo: model.repo,
         versions: []
     };
     for (var ix = 0; ix < model.versions.length; ix++) {
@@ -100,8 +101,8 @@ var get = function (req, res){
  */
 var getProjectVersions = function (req, res){
     data = [];
-    for (var ix =0; ix < req.project.versions.length; ix++) {
-        data.push({
+    for (var ix = 0; ix < req.project.versions.length; ix++) {
+        data.unshift({
             version: req.project.versions[ix].version,
             url: req.project.versions[ix].docsUrl
         });
