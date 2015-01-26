@@ -13,12 +13,12 @@ var response = require('./controllers/util/responses');
 var mongoose = require('mongoose');
 
 
-var App  = function(app, config, routes) {
+var App  = function(exp, config, router) {
 
-    app.set('showStackError', true);
+    exp.set('showStackError', true);
 
     // should be placed before express.static
-    app.use(expCompress({
+    exp.use(expCompress({
         filter: function (req, res) {
            return /json|text|javascript|css/.test(res.getHeader('Content-Type'))
         },
@@ -38,11 +38,11 @@ var App  = function(app, config, routes) {
             break;
     }
     if (logFormat) {
-        app.use(expLogger(logFormat));
+        exp.use(expLogger(logFormat));
     }
 
     // https://github.com/expressjs/domain-middleware
-    app.use(function(req, res, next) {
+    exp.use(function(req, res, next) {
         var requestDomain = domain.create();
         requestDomain.add(req);
         requestDomain.add(res);
@@ -50,8 +50,8 @@ var App  = function(app, config, routes) {
         requestDomain.run(next);
     });
 
-    app.use(expBodyParser());
-    app.use(function (req, res, next) {
+    exp.use(expBodyParser());
+    exp.use(function (req, res, next) {
         console.log('---------------------------');
         console.log('  ' + req.method + ' ' + req.path);
         console.log('  params:', req.params);
@@ -61,31 +61,31 @@ var App  = function(app, config, routes) {
     });
 
     // expose package.json to views
-    app.use(function (req, res, next) {
+    exp.use(function (req, res, next) {
         res.locals.pkg = pkg;
         next();
     });
 
     // Bootstrap routes
-    routes.addRoutes(app, config);
+    router.addRoutes(exp);
 
     // global error handler
-    app.use(function (err, req, res, next) {
+    exp.use(function (err, req, res, next) {
         console.log('!@£$ ERROR: ' + err.name);
         console.error(err.stack);
         return response.internalError(res);
     })
 
     // assume 404 since no middleware responded
-    app.use(function (req, res, next) {
+    exp.use(function (req, res, next) {
         return response.notFound(res);
     });
 
-    app.locals.pretty = true;
+    exp.locals.pretty = true;
 
     this.start = function (port) {
         // Start the app by listening on <port>
-        app.listen(port);
+        exp.listen(port);
         console.log('Express app started on port ' + port);
     };
 

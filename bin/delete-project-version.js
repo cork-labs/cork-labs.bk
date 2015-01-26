@@ -1,6 +1,5 @@
 var commandLine = require('node-commandline').CommandLine;
 var async = require('async');
-var db = require('../lib/db.js');
 
 
 // -- shell arguments
@@ -20,15 +19,10 @@ catch (e) {
 }
 
 
-// -- main
+// -- bootstrap;
 
-var env = process.env.NODE_ENV || 'development';
-var config = require('../config/config')[env];
-
-// configure and connect db
-db.configure(config.db);
-var models = require('../app/models.js');
-db.connect();
+var bootstrap = require('../bootstrap').boot();
+var models = bootstrap.models;
 
 
 // -- tasks

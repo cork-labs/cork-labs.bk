@@ -1,7 +1,15 @@
-var mongoose = require('mongoose');
+module.exports = function(config) {
 
-var Project = require('./models/project.js');
+    var mongoose = require('mongoose');
 
-module.exports = {
-    Project: mongoose.model('Project')
+    var projectConfig = {
+        basePath: config.project.storePath,
+        baseUrl: config.project.baseUrl
+    };
+
+    require('./models/project.js')(projectConfig);
+
+    return {
+        Project: mongoose.model('Project')
+    };
 };

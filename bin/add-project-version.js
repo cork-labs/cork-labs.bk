@@ -1,6 +1,5 @@
 var commandLine = require('node-commandline').CommandLine;
 var async = require('async');
-var db = require('../lib/db.js');
 
 
 // -- shell arguments
@@ -9,7 +8,8 @@ var args;
 var shell = new commandLine('add-project-version');
 shell.addArgument('id', {type: 'string', required: true});
 shell.addArgument('version', {type: 'string', required: true});
-shell.addArgument('docsUrl', {type: 'string', required: true});
+shell.addArgument('docsUrl', {type: 'string', required: false});
+shell.addArgument('coverageUrl', {type: 'string', required: false});
 
 try {
     args = shell.parse.apply(shell, process.argv);
@@ -21,15 +21,10 @@ catch (e) {
 }
 
 
-// -- main
+// -- bootstrap;
 
-var env = process.env.NODE_ENV || 'development';
-var config = require('../config/config')[env];
-
-// configure and connect db
-db.configure(config.db);
-var models = require('../app/models.js');
-db.connect();
+var bootstrap = require('../bootstrap').boot();
+var models = bootstrap.models;
 
 
 // -- tasks
@@ -37,8 +32,8 @@ db.connect();
 var steps = [
 
     function (next) {
-        console.log('Add project version:', args.id, args.version, args.docsUrl);
-        models.Project.addVersion(args.id, args.version, args.docsUrl, next);
+        console.log('Add project version:', args.id, args.version, args.docsUrl, args.coverageUrl);
+        models.Project.addVersion(args.id, args.version, args.docsUrl, args.coverageUrl, next);
     }
 
 ];
