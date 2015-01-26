@@ -13,11 +13,11 @@
     }
   ],
   "keywords": [],
-  "homepage": "http://github.com/cork-labs/cork-labs.bot.bk",
-  "bugs": "https://github.com/cork-labs/cork-labs.bot.bk/issues",
+  "homepage": "http://github.com/cork-labs/jarvis.cork-labs.bk",
+  "bugs": "https://github.com/cork-labs/jarvis.cork-labs.bk/issues",
   "repository": {
     "type": "git",
-    "url": "git://github.com/cork-labs/cork-labs.bot.bk.git"
+    "url": "git://github.com/cork-labs/jarvis.cork-labs.bk.git"
   },
   "readmeFilename": "README.md",
   "engines": {
