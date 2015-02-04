@@ -69,8 +69,8 @@ var Github = function (cfg) {
      */
     var getAccessToken = function (oauthState, code, cb) {
         var data = {
-            'client_id': config.github.clientId,
-            'client_secret': config.github.clientSecret,
+            'client_id': config.clientId,
+            'client_secret': config.clientSecret,
             'code': code,
             'redirect_uri': oauthState.redirectURI,
         };

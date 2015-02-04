@@ -1,13 +1,14 @@
 {
+    "env": "test",
     "app": {
         "name": "Cork-Labs [test]",
-        "url": "http://jarvis.cork-labs.test.org:3001/"
+        "url": "http://cork-labs.test.org/"
     },
     "db": {
         "connection": "mongodb://localhost/cork_labs_jarvis_test"
     },
     "project": {
-        "storePath": "/servers/andre/az/cork-store.test/projects",
+        "storePath": "/servers/store/cork-labs-test/cork-labs.src",
         "baseUrl": "http://jarvis.cork-labs.test.org"
     }
 }

@@ -1,16 +1,17 @@
 {
+    "env": "default",
     "server": {
         "port": 3001
     },
     "app": {
         "name": "Cork-Labs",
-        "url": "http://jarvis.cork-labs.local.org:3001/"
+        "url": "http://cork-labs.org/"
     },
     "db": {
-        "connection": "mongodb://localhost/cork_labs_jarvis_dev"
+        "connection": "mongodb://localhost/cork_labs_jarvis"
     },
     "project": {
-        "storePath": "/servers/andre/az/cork-store/projects",
-        "baseUrl": "http://jarvis.cork-labs.local.org"
+        "storePath": "/servers/store/cork-labs/cork-labs.src",
+        "baseUrl": "http://jarvis.cork-labs.org"
     }
 }
