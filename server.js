@@ -11,10 +11,13 @@ var express = express();
 
 // controllers
 var ProjectCtrl = require('./app/controllers/project');
-var projectCtrl = new ProjectCtrl(config, models.Project);
+
+var controllers = {
+    project: new ProjectCtrl(config, models.Project)
+};
 
 // start app
-app = new App(express, config, new Router(config, projectCtrl));
+app = new App(express, config, new Router(config, controllers));
 app.start(process.env.PORT || config.server.port || 3000);
 
 // expose app

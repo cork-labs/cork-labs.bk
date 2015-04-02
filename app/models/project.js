@@ -158,7 +158,7 @@ module.exports = function(config) {
          * @param {string} path
          * @param {function} cb
          */
-         create: function (id, status, name, repo, path, cb) {
+        create: function (id, status, name, repo, path, cb) {
             var project = new Project({
                 _id: id,
                 status: status,

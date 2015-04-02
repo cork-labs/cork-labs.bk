@@ -4,8 +4,9 @@ var cors = require('../app/controllers/middlewares/cors');
  * Register routes in express application
  *
  * @param {object} config Configuration data.
+ * @param {object} ctrls  controller instances
  */
-var Router = function (config, projectCtrl) {
+var Router = function (config, ctrls) {
 
     /**
      * @param {object} app Instance of Express application.
@@ -15,28 +16,28 @@ var Router = function (config, projectCtrl) {
         // -- project
 
         exp.route('/project')
-            .get(projectCtrl.list);
+            .get(ctrls.project.list);
 
         // exp.route('/project')
-        //     .post(projectCtrl.create);
+        //     .post(ctrls.project.create);
 
         exp.route('/project/:projectId')
             .get(cors.all)
-            .get(projectCtrl.loadProjectById)
-            .get(projectCtrl.get);
+            .get(ctrls.project.loadProjectById)
+            .get(ctrls.project.get);
 
         exp.route('/project/:projectId/versions')
             .get(cors.all)
-            .get(projectCtrl.loadProjectById)
-            .get(projectCtrl.getProjectVersions);
+            .get(ctrls.project.loadProjectById)
+            .get(ctrls.project.getProjectVersions);
 
         // exp.route('/project/:projectId')
-        //     .post(projectCtrl.loadProjectById)
-        //     .post(projectCtrl.update);
+        //     .post(ctrls.project.loadProjectById)
+        //     .post(ctrls.project.update);
 
         // exp.route('/project/:projectId')
-        //     .delete(projectCtrl.loadProjectById)
-        //     .delete(projectCtrl.remove);
+        //     .delete(ctrls.project.loadProjectById)
+        //     .delete(ctrls.project.remove);
 
     }
 
