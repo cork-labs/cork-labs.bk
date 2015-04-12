@@ -3,6 +3,8 @@ module.exports = function(config) {
     var mongoose = require('mongoose');
     var Schema = mongoose.Schema;
 
+    var _ = require('lodash');
+
 
     /**
      * constants - STATUS
@@ -12,6 +14,8 @@ module.exports = function(config) {
         published: 'published',
         deleted: 'deleted'
     };
+
+    var FIELDS = ['name', 'description', 'repo'];
 
     /**
      * schema
@@ -34,14 +38,70 @@ module.exports = function(config) {
             type: String,
             trim: true
         },
+        description: {
+            type: String,
+            trim: true
+        },
         path: {
             type: String,
-            ref: 'User'
+            trim: true
         },
-        repo: {
-            type: String,
-            ref: 'User'
+        assets: {
+            repo: {
+                enabled: {
+                    type: Boolean,
+                    default: true
+                },
+                url: {
+                    type: String,
+                    trim: true
+                }
+            },
+            docs: {
+                enabled: {
+                    type: Boolean,
+                    default: true
+                },
+                url: {
+                    type: String,
+                    trim: true
+                }
+            },
+            demo: {
+                enabled: {
+                    type: Boolean,
+                    default: true
+                },
+                url: {
+                    type: String,
+                    trim: true
+                }
+            },
+            coverage: {
+                enabled: {
+                    type: Boolean,
+                    default: true
+                },
+                url: {
+                    type: String,
+                    trim: true
+                }
+            },
+            travis: {
+                enabled: {
+                    type: Boolean,
+                    default: true
+                },
+                url: {
+                    type: String,
+                    trim: true
+                }
+            },
         },
+        tags: [{
+            id: String,
+            name: String
+        }],
         versions: [
             {
                 version: {
@@ -84,14 +144,73 @@ module.exports = function(config) {
     ProjectSchema.path('name').required(true, 'required');
 
     /**
-     * validation / repo / required owner
-     */
-    ProjectSchema.path('repo').required(true, 'required');
-
-    /**
      * methods
      */
     ProjectSchema.methods = {
+
+        update: function (data, cb) {
+            var key;
+            for (key in data) {
+                if (FIELDS.indexOf(key) !== -1) {
+                    this[key] = data[key];
+                }
+            }
+
+            var asset;
+            var enabled;
+            var url;
+            for (asset in data.assets) {
+                enabled = !!data.assets[asset].enabled;
+                url = data.assets[asset].url;
+                url = (enabled && !this.isDefaultAssetUrl(url, asset)) ? url : null;
+                this.assets[asset] = {
+                    enabled: enabled,
+                    url: url
+                }
+            }
+
+            var newTags = [];
+            var removedTags;
+            var originalTags;
+            var ix;
+            var tag;
+            var newTag;
+            var tagIx;
+            if (data.tags) {
+                originalTags = _.clone(this.tags);
+                for (ix = 0; ix < data.tags.length; ix++) {
+                    tag = data.tags[ix];
+                    // this is a new tag
+                    if (!this.hasTag(tag)) {
+                        newTag = {
+                            id: tag.id,
+                            name: tag.name
+                        };
+                        newTags.push(newTag);
+                        this.tags.push(newTag);
+                    }
+                    // this is a known tag
+                    else {
+                        // remove this tag from the list of original tags
+                        originalTags = originalTags.filter(function (originalTag) {
+                            return originalTag.id !== tag.id
+                        });
+                    }
+                }
+                // original tags that were not found
+                removedTags = originalTags;
+                for (ix = 0; ix < removedTags.length; ix++) {
+                    tagIx = this.getTagIndex(removedTags[ix]);
+                    if (tagIx !== -1) {
+                        this.tags.splice(tagIx, 1);
+                    }
+                }
+            }
+            else {
+                removedTags = [];
+            }
+            cb(newTags, removedTags);
+        },
 
         getPath: function () {
             if (this.path) {
@@ -102,39 +221,75 @@ module.exports = function(config) {
             }
         },
 
-        getVersionDocsUrl: function (version) {
-            for (var ix = 0; ix < this.versions.length; ix++) {
-                if (this.versions[ix].version === version) {
-                    if (this.versions[ix].docsUrl) {
-                        return this.versions[ix].docsUrl;
-                    }
-                    else {
-                        return config.baseUrl + '/' + this._id + '/' + version + '/docs';
-                    }
-                }
-            }
-        },
-
-        getVersionCoverageUrl: function (version) {
-            for (var ix = 0; ix < this.versions.length; ix++) {
-                if (this.versions[ix].version === version) {
-                    if (this.versions[ix].coverageUrl) {
-                        return this.versions[ix].coverageUrl;
-                    }
-                    else {
-                        return config.baseUrl + '/' + this._id + '/' + version + '/coverage';
-                    }
-                }
-            }
-        },
-
         getVersionIndex: function (version) {
+            if (!version) {
+                return this.versions.length ? this.versions.length - 1 : -1;
+            }
             for (var ix = 0; ix < this.versions.length; ix++) {
                 if (this.versions[ix].version === version) {
                     return ix;
                 }
             }
             return -1;
+        },
+
+        hasAsset: function (asset) {
+            return this.assets && this.assets[asset] && !!this.assets[asset].enabled;
+        },
+
+        interpolateAssetUrl: function(asset, version) {
+            switch (asset) {
+                case 'repo':
+                    return 'https://github.com/' + config.githubUser + '/' + this.id;
+                case 'travis':
+                    return 'https://travis-ci.org/' + config.travisUser + '/' + this.id;
+                case 'demo':
+                    return config.baseUrl + '/' + this._id + '/' + version + '/docs/#/demos';
+                default:
+                    return config.baseUrl + '/' + this._id + '/' + version + '/' + asset;
+            }
+        },
+
+        isDefaultAssetUrl: function (url, asset) {
+            return url === this.interpolateAssetUrl(asset, 'current');
+        },
+
+        getAssetUrl: function (asset) {
+            if (this.hasAsset(asset)) {
+                return this.assets[asset].url || this.interpolateAssetUrl(asset, 'current');
+            }
+        },
+
+        getAssetVersionUrl: function (asset, version) {
+            var path = asset;
+            var urlProperty = asset + 'Url';
+
+            // for a specific version
+            var ix = version ? this.getVersionIndex(version) : -1;
+            if (ix !== -1) {
+                if (this.versions[ix][urlProperty]) {
+                    return this.versions[ix][urlProperty];
+                }
+                else if (this.hasAsset(asset)) {
+                    if (ix === this.versions.length - 1) {
+                        version = 'current';
+                    }
+                    return this.interpolateAssetUrl(asset, version);
+                }
+            }
+        },
+
+        getTagIndex: function (tag) {
+            for (var ix = 0; ix < this.tags.length; ix++) {
+                if (this.tags[ix].id === tag.id) {
+                    return ix;
+                }
+            }
+            return -1;
+        },
+
+        hasTag: function (tag) {
+            return this.getTagIndex(tag) !== -1;
         }
     };
 
@@ -166,7 +321,7 @@ module.exports = function(config) {
                 repo: repo,
                 path: path
             });
-            project.save(cb);
+            return project.save(cb);
         },
 
         /**
@@ -277,4 +432,6 @@ module.exports = function(config) {
     };
 
     Project = mongoose.model('Project', ProjectSchema);
+
+    return Project;
 };

@@ -10,10 +10,24 @@ var App = require('./app/app');
 var express = express();
 
 // controllers
+var AuthCtrl = require('./app/controllers/auth');
+var UserCtrl = require('./app/controllers/user');
+var OAuthCtrl = require('./app/controllers/oauth');
+var TagCtrl = require('./app/controllers/tag');
 var ProjectCtrl = require('./app/controllers/project');
+var SearchCtrl = require('./app/controllers/search');
+
+// clients
+var Github = require('./app/clients/github.js');
+var github = new Github();
 
 var controllers = {
-    project: new ProjectCtrl(config, models.Project)
+    auth: new AuthCtrl(config, models.User),
+    user: new UserCtrl(config, models.User, github),
+    oauth: new OAuthCtrl(config, models.OauthState, models.User, github),
+    tag: new TagCtrl(config, models.Tag),
+    project: new ProjectCtrl(config, models.Project, models.Tag),
+    search: new SearchCtrl(config, models.Project, models.Tag),
 };
 
 // start app

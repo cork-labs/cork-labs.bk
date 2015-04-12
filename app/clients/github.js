@@ -4,9 +4,7 @@ var querystring = require('querystring');
 var GitHubApi = require("github");
 
 
-var Github = function (cfg) {
-
-    var config = cfg;
+var Github = function (config) {
 
     function encodeStateId(id) {
         return new Buffer(state._id + '%%' + config.salt).toString('base64');
@@ -40,7 +38,7 @@ var Github = function (cfg) {
      *
      * @returns {string}
      */
-    this.extracyCallbackCode = function (req) {
+    this.extractCallbackCode = function (req) {
         return req.query.code;
     };
 
@@ -54,20 +52,20 @@ var Github = function (cfg) {
 
         url += '?client_id=' + config.clientId;
         url += '&redirect_uri=' + oauthState.redirectURI;
-        url += '&scope=' + oauthState.requestedScope || cfg.defaultScope;
+        url += '&scope=' + oauthState.requestedScope || config.defaultScope;
         url += '&state=' + encodeStateId(oauthState._id);
 
         return url;
     }
 
     /**
-     * Excehanges the code for an access token
+     * Exchanges the code for an access token
      *
      * @param {object} oauthState Contains the redirectURI used to acquire the code.
      * @param {string} code       The temporary code returned by the provider.
      * @param {function(err, token)} cb
      */
-    var getAccessToken = function (oauthState, code, cb) {
+    this.getAccessToken = function (oauthState, code, cb) {
         var data = {
             'client_id': config.clientId,
             'client_secret': config.clientSecret,
@@ -102,7 +100,7 @@ var Github = function (cfg) {
      * @param {string} accessToken
      * @param {function(err, token)} cb
      */
-    var getMe = function (accessToken, cb) {
+    this.getMe = function (accessToken, cb) {
 
         var github = new GitHubApi({
             version: "3.0.0"
@@ -125,7 +123,7 @@ var Github = function (cfg) {
      * @param {object} user
      * @param {function(err, token)} cb
      */
-    var getUserRepos = function (accessToken, user, cb) {
+    this.getUserRepos = function (accessToken, user, cb) {
 
         var github = new GitHubApi({
             version: "3.0.0"
@@ -164,7 +162,7 @@ var Github = function (cfg) {
      * @param {string} repo
      * @param {function(err, token)} cb
      */
-    var getRepoBranches = function (accessToken, user, repo, cb) {
+    this.getRepoBranches = function (accessToken, user, repo, cb) {
 
         var github = new GitHubApi({
             version: "3.0.0"
@@ -203,7 +201,7 @@ var Github = function (cfg) {
      * @param {object} key
      * @param {function} db
      */
-    var addDeployKey = function (accessToken, repo, key, cb) {
+    this.addDeployKey = function (accessToken, repo, key, cb) {
 
         var parts = repo.split('/');
         var user = parts[0];

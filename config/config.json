@@ -12,6 +12,8 @@
     },
     "project": {
         "storePath": "/servers/store/cork-labs/cork-labs.src",
-        "baseUrl": "http://jarvis.cork-labs.org"
+        "baseUrl": "http://jarvis.cork-labs.org",
+        "githubUser": "cork-labs",
+        "travisUser": "cork-labs"
     }
 }

@@ -2,14 +2,24 @@ module.exports = function(config) {
 
     var mongoose = require('mongoose');
 
-    var projectConfig = {
-        basePath: config.project.storePath,
-        baseUrl: config.project.baseUrl
+    var userConfig = {};
+    var User = require('./models/user.js')(userConfig);
+
+    var oauthStateConfig = {};
+    var OAuthState = require('./models/oauthState.js')(oauthStateConfig);
+
+    var tagConfig = {};
+    var Tag = require('./models/tag.js')(tagConfig);
+
+    var projectConfig = config.project;
+    var Project = require('./models/project.js')(projectConfig);
+
+    var models = {
+        User: User,
+        OAuthState: OAuthState,
+        Tag: Tag,
+        Project: Project,
     };
 
-    require('./models/project.js')(projectConfig);
-
-    return {
-        Project: mongoose.model('Project')
-    };
+    return models;
 };
