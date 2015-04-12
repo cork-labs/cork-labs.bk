@@ -59,11 +59,12 @@ var SearchCtrl = function (config, Project, Tag) {
      *
      * search projects by name (@todo later, and search across content)
      *
-     * @expects req.params.terms
+     * @expects req.body.terms
      */
     this.search = function (req, res) {
         var options = {
-            terms: req.param('terms')
+            terms: req.body.terms,
+            tags: req.body.tags
         };
         Project.search(options, function (err, projects) {
             if (err) {
@@ -77,4 +78,4 @@ var SearchCtrl = function (config, Project, Tag) {
 };
 
 
-module.exports = ProjectCtrl;
+module.exports = SearchCtrl;

@@ -153,6 +153,28 @@ var ProjectCtrl = function (config, Project, Tag) {
     };
 
     /**
+     * POST /search
+     *
+     * search projects by name (@todo later, and search by tags)
+     *
+     * @expects req.body.terms
+     * @expects req.body.tags
+     */
+    this.search = function (req, res) {
+        var options = {
+            terms: req.param('terms')
+        };
+        Project.search(options, function (err, projects) {
+            if (err) {
+                return response.error(res, err);
+            }
+            Project.count().exec(function (err, count) {
+                return response.models(res, utils.map(projects, map), page, limit, count);
+            });
+        });
+    };
+
+    /**
      * GET /project/:id
      *
      * load one project by id
