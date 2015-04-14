@@ -17,6 +17,8 @@ module.exports = function(config) {
 
     var FIELDS = ['name', 'description', 'repo'];
 
+    var DEFAULT_PAGE_SIZE = 20;
+
     /**
      * schema
      */
@@ -99,8 +101,8 @@ module.exports = function(config) {
             },
         },
         tags: [{
-            id: String,
-            name: String
+            type: Schema.ObjectId,
+            ref: 'Tag'
         }],
         versions: [
             {
@@ -181,13 +183,13 @@ module.exports = function(config) {
                 for (ix = 0; ix < data.tags.length; ix++) {
                     tag = data.tags[ix];
                     // this is a new tag
-                    if (!this.hasTag(tag)) {
+                    if (!this.hasTagId(tag.id)) {
                         newTag = {
                             id: tag.id,
                             name: tag.name
                         };
                         newTags.push(newTag);
-                        this.tags.push(newTag);
+                        this.tags.push(tag.id);
                     }
                     // this is a known tag
                     else {
@@ -200,7 +202,7 @@ module.exports = function(config) {
                 // original tags that were not found
                 removedTags = originalTags;
                 for (ix = 0; ix < removedTags.length; ix++) {
-                    tagIx = this.getTagIndex(removedTags[ix]);
+                    tagIx = this.getTagIndex(removedTags[ix].id);
                     if (tagIx !== -1) {
                         this.tags.splice(tagIx, 1);
                     }
@@ -279,17 +281,17 @@ module.exports = function(config) {
             }
         },
 
-        getTagIndex: function (tag) {
+        getTagIndex: function (tagId) {
             for (var ix = 0; ix < this.tags.length; ix++) {
-                if (this.tags[ix].id === tag.id) {
+                if (this.tags[ix].id === tagId) {
                     return ix;
                 }
             }
             return -1;
         },
 
-        hasTag: function (tag) {
-            return this.getTagIndex(tag) !== -1;
+        hasTagId: function (tagId) {
+            return this.getTagIndex(tagId) !== -1;
         }
     };
 
@@ -332,6 +334,7 @@ module.exports = function(config) {
          */
         findById: function (id, cb) {
             return this.findOne({ _id : id })
+                .populate('tags')
                 .exec(cb);
         },
 
@@ -345,16 +348,57 @@ module.exports = function(config) {
             var defaultCriteria = {
                 status: STATUS.published
             };
-            var criteria = options.criteria || defaultCriteria;
-            var page = options.page || 0;
-            var pageSize = options.perPage;
+            var criteria = _.merge(defaultCriteria, options.criteria);
+            var page = options.page;
+            var pageSize = options.perPage || DEFAULT_PAGE_SIZE;
             var offset = page * pageSize;
 
             return this.find(criteria)
+                .populate('tags')
                 .sort({'name': 1})
                 .limit(pageSize)
                 .skip(offset)
                 .exec(cb);
+        },
+
+        /**
+         * serach projects
+         *
+         * @param {Object} options
+         * @param {function(err, data)} cb
+         */
+        search: function (options, cb) {
+            var criteria = {};
+            var offset = options.offset || 0
+            var pageSize = options.pageSize || DEFAULT_PAGE_SIZE;
+            var offset = options.offset;
+            var tags;
+            var ix;
+            if (options.terms) {
+                criteria['$or'] = [
+                    {name: new RegExp(options.terms)},
+                    {description: new RegExp(options.terms)}
+                ];
+            }
+            if (options.tags && options.tags.length) {
+                tags = [];
+                criteria['tags'] = {$all : [] };
+                for (ix = 0; ix < options.tags.length; ix ++) {
+                    criteria['tags']['$all'].push(options.tags[ix].id);
+                }
+            }
+
+            console.log('criteria', criteria);
+
+            return this.find(criteria)
+                .populate('tags')
+                .sort({'name': 1})
+                .limit(pageSize)
+                .skip(offset)
+                .exec(function (err, projects) {
+                    console.log(projects);
+                    cb(err, projects);
+                });
         },
 
         /**

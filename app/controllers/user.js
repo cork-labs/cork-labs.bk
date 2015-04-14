@@ -163,7 +163,7 @@ var UserCtrl = function (config, User, github) {
                 return response.error(res, err);
             }
             User.count().exec(function (err, count) {
-                return response.models(res, utils.map(users, map), page, limit, count);
+                return response.collectionPaged(res, utils.map(users, map), page, limit, count);
             });
         });
     };

@@ -4,6 +4,8 @@ var utils = require('./util/utils');
 
 var _ = require('lodash');
 
+var DEFAULT_PAGE_SIZE = 20;
+
 // -- util functions
 
 /**
@@ -11,7 +13,7 @@ var _ = require('lodash');
  * @returns {object}
  */
 function map(model) {
-    var properties = ['name', 'description', 'tags'];
+    var properties = ['name', 'description'];
     var property;
     var assets = ['repo', 'docs', 'coverage', 'demo', 'travis'];
     var asset;
@@ -20,6 +22,7 @@ function map(model) {
     var ret = {
         id: model._id,
         assets: {},
+        tags: [],
         versions: [],
     };
 
@@ -34,6 +37,14 @@ function map(model) {
             enabled: model.hasAsset(asset),
             url:  model.getAssetUrl(asset)
         }
+    }
+
+    for (ix = 0; ix < model.tags.length; ix++) {
+        ret.tags.push({
+            id: model.tags[ix]._id,
+            name: model.tags[ix].name,
+            projectCount: model.tags[ix].projectCount
+        });
     }
 
     for (ix = 0; ix < model.versions.length; ix++) {
@@ -113,12 +124,12 @@ var ProjectCtrl = function (config, Project, Tag) {
                 // update tags (result is ignored)
                 newTags.forEach(function (tag) {
                     Tag.incProjectCount(tag.id, function (res, err) {
-                        console.log('incProject on tag', tag.id, res, err);
+                        console.log('tag: ' + tag.name, ' project count++');
                     });
                 });
                 removedTags.forEach(function (tag) {
                     Tag.decProjectCount(tag.id, function (res, err){
-                        console.log('decProject on tag', tag.id, res, err);
+                        console.log('tag: ' + tag.name, ' project count--');
                     });
                 });
                 return response.model(res, map(req.project));
@@ -147,29 +158,37 @@ var ProjectCtrl = function (config, Project, Tag) {
                 return response.error(res, err);
             }
             Project.count().exec(function (err, count) {
-                return response.models(res, utils.map(projects, map), page, limit, count);
+                return response.collectionPaged(res, utils.map(projects, map), page, limit, count);
             });
         });
     };
 
     /**
-     * POST /search
+     * POST /projects/search
      *
      * search projects by name (@todo later, and search by tags)
      *
      * @expects req.body.terms
      * @expects req.body.tags
+     * @expects req.body.offset
+     * @expects req.body.limit
      */
+
     this.search = function (req, res) {
+        var offset = req.body.offset > 0 ? req.body.offset : 0;
+        var limit = req.body.limit > 0 ? req.body.limit : DEFAULT_PAGE_SIZE;
         var options = {
-            terms: req.param('terms')
+            terms: req.body.terms,
+            tags: req.body.tags,
+            offset: offset,
+            limit: limit
         };
         Project.search(options, function (err, projects) {
             if (err) {
                 return response.error(res, err);
             }
             Project.count().exec(function (err, count) {
-                return response.models(res, utils.map(projects, map), page, limit, count);
+                return response.collectionContinuous(res, utils.map(projects, map), offset, limit, count);
             });
         });
     };

@@ -81,7 +81,21 @@ var response = {
         res.json(200, payload);
     },
 
-    models: function (res, models, page, limit, total) {
+    collection: function (res, models, total) {
+        var payload = {
+            data: models
+        }
+        if (arguments.length > 2) {
+            payload.meta = {
+                pagination: {
+                    total: total
+                }
+            };
+        }
+        res.json(200, payload);
+    },
+
+    collectionPaged: function (res, models, page, limit, total) {
         var payload = {
             data: models
         }
@@ -89,6 +103,22 @@ var response = {
             payload.meta = {
                 pagination: {
                     page: page + 1,
+                    limit: limit,
+                    total: total
+                }
+            };
+        }
+        res.json(200, payload);
+    },
+
+    collectionContinuous: function (res, models, offset, limit, total) {
+        var payload = {
+            data: models
+        }
+        if (arguments.length > 2) {
+            payload.meta = {
+                pagination: {
+                    offset: offset,
                     limit: limit,
                     total: total
                 }

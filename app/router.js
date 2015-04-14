@@ -86,12 +86,12 @@ var Router = function (config, ctrls) {
         exp.route('/project')
             .post(ctrls.project.create);
 
+        exp.route('/project/search')
+            .post(ctrls.project.search);
+
         exp.route('/project/:projectId')
             .put(ctrls.project.loadProjectById)
             .put(ctrls.project.update);
-
-        exp.route('/project/search')
-            .post(ctrls.project.search);
 
         // exp.route('/project/:projectId')
         //     .delete(ctrls.project.loadProjectById)

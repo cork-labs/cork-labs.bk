@@ -99,7 +99,7 @@ var TagCtrl = function (config, Tag) {
                 return response.error(res, err);
             }
             Tag.count().exec(function (err, count) {
-                return response.models(res, utils.map(tags, map), 0, null, count);
+                return response.collection(res, utils.map(tags, map), count);
             });
         });
     };
@@ -119,7 +119,7 @@ var TagCtrl = function (config, Tag) {
                 return response.error(res, err);
             }
             Tag.count().exec(function (err, count) {
-                return response.models(res, utils.map(tags, map), 0, null, count);
+                return response.collection(res, utils.map(tags, map), count);
             });
         });
     };

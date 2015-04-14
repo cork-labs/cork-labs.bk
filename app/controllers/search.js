@@ -4,6 +4,8 @@ var utils = require('./util/utils');
 
 var _ = require('lodash');
 
+var DEFAULT_PAGE_SIZE = 20;
+
 // -- util functions
 
 /**
@@ -60,18 +62,25 @@ var SearchCtrl = function (config, Project, Tag) {
      * search projects by name (@todo later, and search across content)
      *
      * @expects req.body.terms
+     * @expects req.body.tags
+     * @expects req.body.offset
+     * @expects req.body.limit
      */
     this.search = function (req, res) {
+        var offset = req.body.offset > 0 ? req.body.offset : 0;
+        var limit = req.body.limit > 0 ? req.body.limit : DEFAULT_PAGE_SIZE;
         var options = {
             terms: req.body.terms,
-            tags: req.body.tags
+            tags: req.body.tags,
+            offset: offset,
+            limit: limit
         };
         Project.search(options, function (err, projects) {
             if (err) {
                 return response.error(res, err);
             }
             Project.count().exec(function (err, count) {
-                return response.models(res, utils.map(projects, map), page, limit, count);
+                return response.collectionContinuous(res, utils.map(projects, map), offset, limit, count);
             });
         });
     };
