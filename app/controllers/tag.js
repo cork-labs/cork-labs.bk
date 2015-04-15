@@ -4,20 +4,6 @@ var utils = require('./util/utils');
 
 // -- util functions
 
-/**
- * @param {object} model
- * @returns {object}
- */
-function map(model) {
-    var ret = {
-        id: model._id,
-        name: model.name,
-        description: model.description,
-        projectCount: model.projectCount
-    };
-    return ret;
-};
-
 
 // -- controller
 
@@ -64,7 +50,7 @@ var TagCtrl = function (config, Tag) {
                 console.log(err);
                 return response.error(res, err);
             }
-            return response.created(res, map(tag));
+            return response.created(res, tag.asObject());
         });
     };
 
@@ -82,7 +68,7 @@ var TagCtrl = function (config, Tag) {
             if (err) {
                 return response.error(res, err);
             }
-            return response.model(res, map(req.tag));
+            return response.model(res, req.tag.asObject());
         });
     };
 
@@ -99,7 +85,10 @@ var TagCtrl = function (config, Tag) {
                 return response.error(res, err);
             }
             Tag.count().exec(function (err, count) {
-                return response.collection(res, utils.map(tags, map), count);
+                tags = tags.map(function (tag) {
+                    return tag.asObject();
+                });
+                return response.collection(res, tags, count);
             });
         });
     };
@@ -119,7 +108,10 @@ var TagCtrl = function (config, Tag) {
                 return response.error(res, err);
             }
             Tag.count().exec(function (err, count) {
-                return response.collection(res, utils.map(tags, map), count);
+                tags = tags.map(function (tag) {
+                    return tag.asObject();
+                });
+                return response.collection(res, tags, count);
             });
         });
     };
@@ -132,7 +124,7 @@ var TagCtrl = function (config, Tag) {
      * @expects req.tag
      */
     this.get = function (req, res) {
-        return response.model(res, map(req.tag));
+        return response.model(res, req.tag.asObject());
     };
 
     // -- authorization middlewares

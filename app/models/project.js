@@ -2,20 +2,31 @@ module.exports = function(config) {
 
     var mongoose = require('mongoose');
     var Schema = mongoose.Schema;
-
     var _ = require('lodash');
 
-
     /**
-     * constants - STATUS
+     * constants - possible statuses
      */
     var STATUS = {
         draft: 'draft',
         published: 'published',
-        deleted: 'deleted'
+        deleted: 'deleted' // not in use, yet
     };
 
-    var FIELDS = ['name', 'description', 'repo'];
+    /**
+     * constants -supported asset "types"
+     */
+    var ASSET_NAMES = ['repo', 'docs', 'coverage', 'demo', 'travis'];
+
+    /**
+     * constants -fields updated transparently on instance.update(data)
+     */
+    var UPDATE_PROPERTIES = ['name', 'description', 'readme', 'versions']; // @todo update versions more carefully
+
+    /**
+     * constants - fields returned transparently on instance.asObject()
+     */
+    var AS_OBJECT_PROPERTIES = ['name', 'description', 'readme'];
 
     var DEFAULT_PAGE_SIZE = 20;
 
@@ -41,6 +52,10 @@ module.exports = function(config) {
             trim: true
         },
         description: {
+            type: String,
+            trim: true
+        },
+        readme: {
             type: String,
             trim: true
         },
@@ -104,21 +119,13 @@ module.exports = function(config) {
             type: Schema.ObjectId,
             ref: 'Tag'
         }],
+        currentVersionTag: {
+            type: String,
+            trim: true
+        },
         versions: [
             {
-                version: {
-                    type: String,
-                    trim: true
-                },
-                pkg: {
-                    type: String,
-                    trim: true
-                },
-                docsUrl: {
-                    type: String,
-                    trim: true
-                },
-                coverageUrl: {
+                tag: {
                     type: String,
                     trim: true
                 },
@@ -153,7 +160,7 @@ module.exports = function(config) {
         update: function (data, cb) {
             var key;
             for (key in data) {
-                if (FIELDS.indexOf(key) !== -1) {
+                if (UPDATE_PROPERTIES.indexOf(key) !== -1) {
                     this[key] = data[key];
                 }
             }
@@ -164,7 +171,7 @@ module.exports = function(config) {
             for (asset in data.assets) {
                 enabled = !!data.assets[asset].enabled;
                 url = data.assets[asset].url;
-                url = (enabled && !this.isDefaultAssetUrl(url, asset)) ? url : null;
+                url = !this.isDefaultAssetUrl(url, asset) ? url : null;
                 this.assets[asset] = {
                     enabled: enabled,
                     url: url
@@ -223,32 +230,32 @@ module.exports = function(config) {
             }
         },
 
-        getVersionIndex: function (version) {
-            if (!version) {
-                return this.versions.length ? this.versions.length - 1 : -1;
+        getVersionIndex: function (tag) {
+            if (!tag) {
+                tag = this.currentVersionTag;
             }
             for (var ix = 0; ix < this.versions.length; ix++) {
-                if (this.versions[ix].version === version) {
+                if (this.versions[ix].tag === tag) {
                     return ix;
                 }
             }
             return -1;
         },
 
-        hasAsset: function (asset) {
+        isAssetEnabled: function (asset) {
             return this.assets && this.assets[asset] && !!this.assets[asset].enabled;
         },
 
-        interpolateAssetUrl: function(asset, version) {
+        interpolateAssetUrl: function(asset, tag) {
             switch (asset) {
                 case 'repo':
                     return 'https://github.com/' + config.githubUser + '/' + this.id;
                 case 'travis':
                     return 'https://travis-ci.org/' + config.travisUser + '/' + this.id;
                 case 'demo':
-                    return config.baseUrl + '/' + this._id + '/' + version + '/docs/#/demos';
+                    return config.baseUrl + '/' + this._id + '/' + tag + '/docs/#/demos';
                 default:
-                    return config.baseUrl + '/' + this._id + '/' + version + '/' + asset;
+                    return config.baseUrl + '/' + this._id + '/' + tag + '/' + asset;
             }
         },
 
@@ -257,28 +264,34 @@ module.exports = function(config) {
         },
 
         getAssetUrl: function (asset) {
-            if (this.hasAsset(asset)) {
+            if (this.isAssetEnabled(asset)) {
                 return this.assets[asset].url || this.interpolateAssetUrl(asset, 'current');
             }
         },
 
-        getAssetVersionUrl: function (asset, version) {
+        getAssetVersionUrl: function (asset, tag) {
             var path = asset;
             var urlProperty = asset + 'Url';
 
             // for a specific version
-            var ix = version ? this.getVersionIndex(version) : -1;
+            var ix = tag ? this.getVersionIndex(tag) : -1;
             if (ix !== -1) {
-                if (this.versions[ix][urlProperty]) {
-                    return this.versions[ix][urlProperty];
-                }
-                else if (this.hasAsset(asset)) {
-                    if (ix === this.versions.length - 1) {
-                        version = 'current';
+                if (this.isAssetEnabled(asset)) {
+                    // @caution: hidden return
+                    if (this.versions[ix][urlProperty]) {
+                        return this.versions[ix][urlProperty];
                     }
-                    return this.interpolateAssetUrl(asset, version);
+                    if (this.versions[ix].tag === this.currentVersionTag ) {
+                        tag = 'current';
+                    }
+                    return this.interpolateAssetUrl(asset, tag);
                 }
             }
+        },
+
+        isCurrentVersionTag: function (tag) {
+            // guaranteee that if both values are undefined it still returns falseASSET
+            return this.currentVersionTag && this.currentVersionTag === tag;
         },
 
         getTagIndex: function (tagId) {
@@ -287,17 +300,67 @@ module.exports = function(config) {
                     return ix;
                 }
             }
-            return -1;
+            return - 1;
         },
 
         hasTagId: function (tagId) {
             return this.getTagIndex(tagId) !== -1;
+        },
+
+        /**
+         * @returns {object}
+         */
+        asObject: function () {
+            var property;
+            var asset;
+            var ix;
+
+            var ret = {
+                id: this._id,
+                assets: {},
+                tags: [],
+                versions: [],
+            };
+
+            for (ix = 0; ix < AS_OBJECT_PROPERTIES.length; ix++) {
+                property = AS_OBJECT_PROPERTIES[ix];
+                ret[property] = _.clone(this[property]);
+            }
+
+            for (ix = 0; ix < ASSET_NAMES.length; ix++) {
+                asset = ASSET_NAMES[ix];
+                ret.assets[asset] = {
+                    enabled: this.isAssetEnabled(asset),
+                    url:  this.getAssetUrl(asset)
+                }
+            }
+
+            ix = this.getVersionIndex();
+            if (ix !== -1) {
+                ret.currentVersion = this.tags[ix];
+            }
+
+            for (ix = 0; ix < this.tags.length; ix++) {
+                ret.tags.push({
+                    id: this.tags[ix]._id,
+                    name: this.tags[ix].name,
+                    projectCount: this.tags[ix].projectCount
+                });
+            }
+
+            for (ix = 0; ix < this.versions.length; ix++) {
+                ret.versions.push({
+                    tag: this.versions[ix].tag,
+                    date: this.versions[ix].date
+                });
+            }
+
+            return ret;
         }
     };
 
-
     /**
-     * static methods
+     * service
      */
     ProjectSchema.statics = {
 
@@ -377,7 +440,8 @@ module.exports = function(config) {
             if (options.terms) {
                 criteria['$or'] = [
                     {name: new RegExp(options.terms)},
-                    {description: new RegExp(options.terms)}
+                    {description: new RegExp(options.terms)},
+                    {readme: new RegExp(options.terms)}
                 ];
             }
             if (options.tags && options.tags.length) {
@@ -388,29 +452,23 @@ module.exports = function(config) {
                 }
             }
 
-            console.log('criteria', criteria);
-
             return this.find(criteria)
                 .populate('tags')
                 .sort({'name': 1})
                 .limit(pageSize)
                 .skip(offset)
-                .exec(function (err, projects) {
-                    console.log(projects);
-                    cb(err, projects);
-                });
+                .exec(cb);
         },
 
         /**
          * adds a version to the project
          *
-         * @param {string} projectId
-         * @param {string} version
-         * @param {string} docsUrl
-         * @param {string} coverageUrl
+         * @param {string} id
+         * @param {string} tag
+         * @param {Date} date
          * @param {function} cb
          */
-        addVersion: function (id, version, docsUrl, coverageUrl, cb) {
+        addVersion: function (id, tag, date, cb) {
             this.findById(id, function (err, project) {
                 if (err) {
                     return cb(err);
@@ -418,14 +476,13 @@ module.exports = function(config) {
                 if (!project) {
                     return cb('Project "' + id + '" not found.');
                 }
-                var index = project.getVersionIndex(version);
+                var index = project.getVersionIndex(tag);
                 if (index !== -1) {
-                    return cb('Project "' + id + '" already has a version "' + version + '".');
+                    return cb('Project "' + id + '" already has a version tagged "' + tag + '".');
                 }
                 project.versions.push({
-                    version: version,
-                    docsUrl: docsUrl,
-                    coverageUrl: coverageUrl
+                    tag: tag,
+                    date: date
                 });
                 return project.save(cb);
             });
@@ -435,10 +492,10 @@ module.exports = function(config) {
          * deletes a version from the project
          *
          * @param {string} projectId
-         * @param {string} version
+         * @param {string} tag
          * @param {function} cb
          */
-        deleteVersion: function (id, version, cb) {
+        deleteVersion: function (id, tag, cb) {
             this.findById(id, function (err, project) {
                 if (err) {
                     return cb(err);
@@ -446,9 +503,9 @@ module.exports = function(config) {
                 if (!project) {
                     return cb('Project "' + id + '" not found.');
                 }
-                var index = project.getVersionIndex(version);
+                var index = project.getVersionIndex(tag);
                 if (index === -1) {
-                    return cb('Project "' + id + '" does not have a version "' + version + '".');
+                    return cb('Project "' + id + '" does not have a version tagged "' + tag + '".');
                 }
                 project.versions.splice(index, 1);
                 return project.save(cb);
@@ -472,7 +529,6 @@ module.exports = function(config) {
                 return project.remove(cb);
             });
         }
-
     };
 
     Project = mongoose.model('Project', ProjectSchema);

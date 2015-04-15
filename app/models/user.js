@@ -4,6 +4,7 @@ module.exports = function(config) {
     var Schema = mongoose.Schema;
     var crypto = require('crypto');
     var moment = require('moment');
+    var _ = require('lodash');
 
 
     // @todo configure
@@ -12,7 +13,7 @@ module.exports = function(config) {
     var TOKEN_TTL_CONSUMED = 30 * 60; // 30 minutes
 
     /**
-     * constants - STATUS
+     * constants - possible states
      */
     var STATUS = {
         preregistration: 'pre-registration',
@@ -22,7 +23,7 @@ module.exports = function(config) {
     };
 
     /**
-     * constants - STATUS transitions
+     * constants - state transitions
      */
     var STATUSES_ACTIVATION = [STATUS.preregistration, STATUS.preactivation, STATUS.activation];
     var STATUSES_PREACTIVATION = [STATUS.preactivation, STATUS.activation];
@@ -47,7 +48,7 @@ module.exports = function(config) {
     var NAME_MAXLENGTH = 50;
 
     /**
-     * constants - ROLE
+     * constants - roles
      */
     var ROLE = {
         admin: 'admin',
@@ -55,7 +56,7 @@ module.exports = function(config) {
     };
 
     /**
-     * constants - PROVIDER
+     * constants - supported providers (lol)
      */
     var PROVIDER = {
         local: 'local',
@@ -65,13 +66,19 @@ module.exports = function(config) {
     };
 
     /**
-     * constants - ACCOUNT
+     * constants - account type
      */
     var ACCOUNT = {
         free: 'free',
         subscription: 'subscription',
         premium: 'premium'
     };
+
+    /**
+     * constants - fields returned transparently on instance.asObject()
+     */
+    var AS_OBJECT_PROPERTIES = ['name', 'email', 'pictureURL', 'createdDate'];
+    var AS_PRIVATE_OBJECT_PROPERTIES = ['status', 'role', 'provider', 'account', 'activatedDate'];
 
     /**
      * utils - encrypt password
@@ -492,6 +499,67 @@ module.exports = function(config) {
                 this.providers[provider].data = {};
             }
             this.providers[provider].data[attribute] = value;
+        },
+
+        /**
+         * @returns {object}
+         */
+        asObject: function() {
+            var ix;
+            var property;
+
+            var ret = {
+                id: this._id,
+                providers: {}
+            };
+
+            for (ix = 0; ix < AS_OBJECT_PROPERTIES.length; ix++) {
+                property = AS_OBJECT_PROPERTIES[ix];
+                ret[property] = _.clone(this[property]);
+            }
+
+            var providers = this.getProviders();
+            for (var ix = 0; ix < providers.length; ix++) {
+                var provider = providers[ix];
+                if (this.hasProviderState(provider)) {
+                    ret.providers[provider] = {
+                        scope: this.getProviderScope(provider),
+                        date: this.getProviderDate(provider),
+                        data: this.getProviderData(provider)
+                    }
+                }
+            }
+
+            return ret;
+        },
+
+        /**
+         * @returns {object}
+         */
+        asPrivateObject: function() {
+            var ix;
+            var property;
+
+            var ret = this.asObject();
+
+            for (ix = 0; ix < AS_PRIVATE_OBJECT_PROPERTIES.length; ix++) {
+                property = AS_PRIVATE_OBJECT_PROPERTIES[ix];
+                ret[property] = _.clone(this[property]);
+            }
+
+            var providers = this.getProviders();
+            for (var ix = 0; ix < providers.length; ix++) {
+                var provider = providers[ix];
+                if (this.hasProviderState(provider)) {
+                    ret.providers[provider] = {
+                        scope: this.getProviderScope(provider),
+                        date: this.getProviderDate(provider),
+                        data: this.getProviderData(provider)
+                    }
+                }
+            }
+
+            return ret;
         }
     };
 
@@ -861,7 +929,6 @@ module.exports = function(config) {
                 .skip(offset)
                 .exec(cb);
         }
-
     };
 
     User = mongoose.model('User', UserSchema);

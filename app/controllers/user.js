@@ -1,56 +1,6 @@
 
 // -- util functions
 
-/**
- * @param {object} model
- * @returns {object}
- */
-function map(model) {
-    var ret = {
-        id: model.id,
-        status: model.status,
-        role: model.role,
-        name: model.name,
-        email: model.email,
-        createdDate: model.createdDate,
-        activatedDate: model.activatedDate
-    };
-    return ret;
-};
-
-/**
- * @todo repeated in controller/auth
- * @param {object} model
- * @returns {object}
- */
-function mapMe(model) {
-    var ret = {
-        id: model._id,
-        status: model.status,
-        role: model.role,
-        provider: model.provider,
-        account: model.account,
-        name: model.name,
-        email: model.email,
-        createdDate: model.createdDate,
-        activatedDate: model.activatedDate,
-        providers: {}
-    };
-
-    var providers = model.getProviders();
-    for (var ix = 0; ix < providers.length; ix++) {
-        var provider = providers[ix];
-        if (model.hasProviderState(provider)) {
-            ret.providers[provider] = {
-                scope: model.getProviderScope(provider),
-                date: model.getProviderDate(provider),
-                data: model.getProviderData(provider)
-            }
-        }
-    }
-
-    return ret;
-};
 
 // -- controller
 

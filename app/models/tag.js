@@ -2,6 +2,12 @@ module.exports = function(config) {
 
     var mongoose = require('mongoose');
     var Schema = mongoose.Schema;
+    var _ = require('lodash');
+
+    /**
+     * constants - fields returned transparently on instance.asObject()
+     */
+    var AS_OBJECT_PROPERTIES = ['name', 'description', 'projectCount'];
 
     /**
      * schema
@@ -65,6 +71,25 @@ module.exports = function(config) {
             if (this.projectCount) {
                 this.projectCount--;
             }
+        },
+
+        /**
+         * @returns {object}
+         */
+        asObject: function () {
+            var ix;
+            var property;
+
+            var ret = {
+                id: this._id
+            };
+
+            for (ix = 0; ix < AS_OBJECT_PROPERTIES.length; ix++) {
+                property = AS_OBJECT_PROPERTIES[ix];
+                ret[property] = _.clone(this[property]);
+            }
+
+            return ret;
         }
     };
 
@@ -191,7 +216,6 @@ module.exports = function(config) {
                 return tag.remove(cb);
             });
         }
-
     };
 
     Tag = mongoose.model('Tag', TagSchema);

@@ -5,41 +5,6 @@ var utils = require('./util/utils');
 
 // -- util functions
 
-/**
- * @todo repeated in controller/user
- * @param {object} model
- * @returns {object}
- */
-function map(model) {
-    var ret = {
-        id: model._id,
-        status: model.status,
-        role: model.role,
-        provider: model.provider,
-        account: model.account,
-        name: model.name,
-        email: model.email,
-        pictureURL: model.pictureURL,
-        createdDate: model.createdDate,
-        activatedDate: model.activatedDate,
-        providers: {}
-    };
-
-    var providers = model.getProviders();
-    for (var ix = 0; ix < providers.length; ix++) {
-        var provider = providers[ix];
-        if (model.hasProviderState(provider)) {
-            ret.providers[provider] = {
-                scope: model.getProviderScope(provider),
-                date: model.getProviderDate(provider),
-                data: model.getProviderData(provider)
-            }
-        }
-    }
-
-    return ret;
-}
-
 
 // -- controller
 
@@ -250,7 +215,7 @@ var AuthCtrl = function (config, User) {
             if (!user) {
                 return response.unauthorized(res);
             }
-            return response.model(res, map(user));
+            return response.model(res, user.asPrivateObject());
         });
     };
 

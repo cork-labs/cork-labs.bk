@@ -2,62 +2,9 @@
 var response = require('./util/responses');
 var utils = require('./util/utils');
 
-var _ = require('lodash');
-
 var DEFAULT_PAGE_SIZE = 20;
 
 // -- util functions
-
-/**
- * @param {object} model
- * @returns {object}
- */
-function map(model) {
-    var properties = ['name', 'description'];
-    var property;
-    var assets = ['repo', 'docs', 'coverage', 'demo', 'travis'];
-    var asset;
-    var ix;
-
-    var ret = {
-        id: model._id,
-        assets: {},
-        tags: [],
-        versions: [],
-    };
-
-    for (ix = 0; ix < properties.length; ix++) {
-        property = properties[ix];
-        ret[property] = _.clone(model[property]);
-    }
-
-    for (ix = 0; ix < assets.length; ix++) {
-        asset = assets[ix];
-        ret.assets[asset] = {
-            enabled: model.hasAsset(asset),
-            url:  model.getAssetUrl(asset)
-        }
-    }
-
-    for (ix = 0; ix < model.tags.length; ix++) {
-        ret.tags.push({
-            id: model.tags[ix]._id,
-            name: model.tags[ix].name,
-            projectCount: model.tags[ix].projectCount
-        });
-    }
-
-    for (ix = 0; ix < model.versions.length; ix++) {
-        ret.versions.push({
-            version: model.versions[ix].version,
-            docsUrl: model.getAssetVersionUrl('docs', model.versions[ix].version),
-            coverageUrl: model.getAssetVersionUrl('coverage', model.versions[ix].version),
-            date: model.versions[ix].date
-        });
-    }
-
-    return ret;
-};
 
 
 // -- controller
@@ -75,6 +22,9 @@ var ProjectCtrl = function (config, Project, Tag) {
     this.loadProjectById = function (req, res, next) {
         var id = req.param('projectId');
         Project.findById(id, function (err, project) {
+
+            console.log(project);
+
             if (err) {
                 return response.error(res, err);
             }
@@ -103,7 +53,7 @@ var ProjectCtrl = function (config, Project, Tag) {
             if (err) {
                 return response.error(res, err);
             }
-            return response.created(res, map(project));
+            return response.created(res, project.asObject());
         });
     };
 
@@ -132,7 +82,7 @@ var ProjectCtrl = function (config, Project, Tag) {
                         console.log('tag: ' + tag.name, ' project count--');
                     });
                 });
-                return response.model(res, map(req.project));
+                return response.model(res, req.project.asObject());
             });
         });
     };
@@ -158,7 +108,10 @@ var ProjectCtrl = function (config, Project, Tag) {
                 return response.error(res, err);
             }
             Project.count().exec(function (err, count) {
-                return response.collectionPaged(res, utils.map(projects, map), page, limit, count);
+                projects = projects.map(function (project) {
+                    return project.asObject();
+                });
+                return response.collectionPaged(res, projects, page, limit, count);
             });
         });
     };
@@ -188,7 +141,10 @@ var ProjectCtrl = function (config, Project, Tag) {
                 return response.error(res, err);
             }
             Project.count().exec(function (err, count) {
-                return response.collectionContinuous(res, utils.map(projects, map), offset, limit, count);
+                projects = projects.map(function (project) {
+                    return project.asObject();
+                });
+                return response.collectionContinuous(res, projects, offset, limit, count);
             });
         });
     };
@@ -201,14 +157,14 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.project
      */
     this.get = function (req, res) {
-        return response.model(res, map(req.project));
+        return response.model(res, req.project.asObject());
     };
 
 
     /**
      * GET /project/:id/versions
      *
-     * exposes only the project versions
+     * exposes only the project versions as required by ng-docs apps
      *
      * @expects req.project
      */
@@ -216,10 +172,14 @@ var ProjectCtrl = function (config, Project, Tag) {
         var version;
         var data = [];
         for (var ix = 0; ix < req.project.versions.length; ix++) {
-            version = req.project.versions[ix].version;
+            version = req.project.versions[ix];
+            tag = version.tag;
             data.unshift({
-                version: version,
-                url: req.project.getAssetVersionUrl('docs', version)
+                tag: tag,
+                version: tag, // @todo deprecate: compatibility with ng-docs version selector request
+                date: version.date,
+                url: req.project.getAssetVersionUrl('docs', tag),
+                isCurrent: req.project.isCurrentVersionTag(tag)
             });
         }
         return response.data(res, data);

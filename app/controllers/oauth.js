@@ -3,9 +3,7 @@ var response = require('./util/responses');
 var utils = require('./util/utils');
 
 
-
-
-// -- authorization middleware
+// -- util functions
 
 
 // -- controller

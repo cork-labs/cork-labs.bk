@@ -4,7 +4,7 @@ module.exports = function(config) {
     var Schema = mongoose.Schema;
 
 
-    // -- models
+    // -- models (not a good pattern, use DI instead)
 
     var User = mongoose.model('User');
 
@@ -153,7 +153,6 @@ module.exports = function(config) {
             oAuthState.save();
             return oAuthState;
         }
-
     };
 
     OAuthState = mongoose.model('OAuthState', OAuthStateSchema);
