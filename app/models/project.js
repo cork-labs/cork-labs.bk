@@ -337,7 +337,10 @@ module.exports = function(config) {
 
             ix = this.getVersionIndex();
             if (ix !== -1) {
-                ret.currentVersion = this.tags[ix];
+                ret.currentVersion = {
+                    tag: this.versions[ix].tag,
+                    date: this.versions[ix].date,
+                };
             }
 
             for (ix = 0; ix < this.tags.length; ix++) {

@@ -160,7 +160,6 @@ var ProjectCtrl = function (config, Project, Tag) {
         return response.model(res, req.project.asObject());
     };
 
-
     /**
      * GET /project/:id/versions
      *
@@ -182,6 +181,32 @@ var ProjectCtrl = function (config, Project, Tag) {
                 isCurrent: req.project.isCurrentVersionTag(tag)
             });
         }
+        return response.data(res, data);
+    };
+
+    /**
+     * POST /project/:id/build
+     *
+     * @expects req.project
+     * @expects req.body.tag
+     */
+    this.buildVersion = function (req, res) {
+        var version;
+        var data = [];
+        console.log(req.body);
+        return response.data(res, data);
+    };
+
+    /**
+     * POST /project/:id/current-version
+     *
+     * @expects req.project
+     * @expects req.body.tag
+     */
+    this.setCurrentVersion = function (req, res) {
+        var version;
+        var data = [];
+        console.log(req.body);
         return response.data(res, data);
     };
 

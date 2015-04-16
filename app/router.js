@@ -89,6 +89,14 @@ var Router = function (config, ctrls) {
         exp.route('/project/search')
             .post(ctrls.project.search);
 
+        exp.route('/project/:projectId/build')
+            .post(ctrls.project.loadProjectById)
+            .post(ctrls.project.buildVersion);
+
+        exp.route('/project/:projectId/current-version')
+            .post(ctrls.project.loadProjectById)
+            .post(ctrls.project.setCurrentVersion);
+
         exp.route('/project/:projectId')
             .put(ctrls.project.loadProjectById)
             .put(ctrls.project.update);
