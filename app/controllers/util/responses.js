@@ -173,6 +173,15 @@ var response = {
         res.json(404, payload);
     },
 
+    timeout: function (res, err) {
+        var payload = {
+            error: {
+                message: err || 'error.timeout'
+            }
+        };
+        res.json(503, payload);
+    },
+
     error: function (res, err) {
         var payload = normalizeError(err);
         if (payload.error.message === 'error.internal') {

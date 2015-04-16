@@ -1,6 +1,5 @@
 
 var response = require('./util/responses');
-var utils = require('./util/utils');
 
 var DEFAULT_PAGE_SIZE = 20;
 

@@ -21,7 +21,7 @@ module.exports = function(config) {
     /**
      * constants -fields updated transparently on instance.update(data)
      */
-    var UPDATE_PROPERTIES = ['name', 'description', 'readme', 'versions']; // @todo update versions more carefully
+    var UPDATE_PROPERTIES = ['name', 'description', 'readme', 'repo', 'path', 'versions']; // @todo update versions more carefully
 
     /**
      * constants - fields returned transparently on instance.asObject()
@@ -29,6 +29,18 @@ module.exports = function(config) {
     var AS_OBJECT_PROPERTIES = ['name', 'description', 'readme'];
 
     var DEFAULT_PAGE_SIZE = 20;
+
+    // -- util functions
+
+    /**
+     * exposed in the service
+     *
+     * @param {string} versionTag
+     * @returns {boolean}
+     */
+    var isValidVersionTag = function (versionTag) {
+        return typeof versionTag === 'string' && versionTag.match(/^[\d\w.\-_]+$/);
+    };
 
     /**
      * schema
@@ -56,6 +68,10 @@ module.exports = function(config) {
             trim: true
         },
         readme: {
+            type: String,
+            trim: true
+        },
+        repo: {
             type: String,
             trim: true
         },
@@ -332,7 +348,7 @@ module.exports = function(config) {
                 ret.assets[asset] = {
                     enabled: this.isAssetEnabled(asset),
                     url:  this.getAssetUrl(asset)
-                }
+                };
             }
 
             ix = this.getVersionIndex();
@@ -343,13 +359,13 @@ module.exports = function(config) {
                 };
             }
 
-            for (ix = 0; ix < this.tags.length; ix++) {
-                ret.tags.push({
-                    id: this.tags[ix]._id,
-                    name: this.tags[ix].name,
-                    projectCount: this.tags[ix].projectCount
-                });
-            }
+            ret.tags = this.tags.map(function (tag) {
+                return {
+                    id: tag._id,
+                    name: tag.name,
+                    projectCount: tag.projectCount
+                };
+            });
 
             for (ix = 0; ix < this.versions.length; ix++) {
                 ret.versions.push({
@@ -531,7 +547,11 @@ module.exports = function(config) {
                 }
                 return project.remove(cb);
             });
-        }
+        },
+
+        // -- utils
+
+        isValidVersionTag: isValidVersionTag
     };
 
     Project = mongoose.model('Project', ProjectSchema);

@@ -1,4 +1,6 @@
 var cors = require('../app/controllers/middlewares/cors');
+var timeout = require('connect-timeout');
+var response = require('./controllers/util/responses');
 
 /**
  * Register routes in express application
@@ -7,6 +9,18 @@ var cors = require('../app/controllers/middlewares/cors');
  * @param {object} ctrls  controller instances
  */
 var Router = function (config, ctrls) {
+
+    /**
+     * middleware to
+     *
+     * see: https://github.com/expressjs/timeout
+     */
+    function haltOnTimedout(req, res, next){
+        if (req.timedout) {
+            return response.timeout(res);
+        }
+        return next();
+    }
 
     /**
      * @param {object} app Instance of Express application.
@@ -91,6 +105,7 @@ var Router = function (config, ctrls) {
 
         exp.route('/project/:projectId/build')
             .post(ctrls.project.loadProjectById)
+            .post(timeout(1200000))
             .post(ctrls.project.buildVersion);
 
         exp.route('/project/:projectId/current-version')

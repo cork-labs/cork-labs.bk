@@ -29,7 +29,6 @@ var App  = function(exp, config, router) {
     var logFormat;
     switch (env) {
         case 'test':
-            break
         case 'development':
             logFormat = 'dev';
             break;
@@ -52,12 +51,17 @@ var App  = function(exp, config, router) {
 
     exp.use(expBodyParser());
     exp.use(function (req, res, next) {
-        console.log('---------------------------');
-        console.log('  ' + req.method + ' ' + req.path);
-        console.log('  params:', req.params);
-        console.log('  body', typeof req.body, req.body);
-        console.log('---------------------------');
-        next();
+        if (env === 'development') {
+            console.log('---------------------------');
+            console.log('  ' + req.method + ' ' + req.path);
+            console.log('  params:', req.params);
+            console.log('  body', typeof req.body, req.body);
+            console.log('---------------------------');
+            next();
+        }
+        else if (env === 'production') {
+            // @todo production log
+        }
     });
 
     // expose package.json to views
@@ -73,7 +77,12 @@ var App  = function(exp, config, router) {
     exp.use(function (err, req, res, next) {
         console.log('!@£$ ERROR: ' + err.name);
         console.error(err.stack);
-        return response.internalError(res);
+        if (err.name === 'ServiceUnavailableError') {
+            return response.timeout(res);
+        }
+        else {
+            return response.internalError(res);
+        }
     })
 
     // assume 404 since no middleware responded

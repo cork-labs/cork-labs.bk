@@ -1,6 +1,5 @@
 
 var response = require('./util/responses');
-var utils = require('./util/utils');
 
 // -- util functions
 

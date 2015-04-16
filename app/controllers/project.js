@@ -1,6 +1,13 @@
 
 var response = require('./util/responses');
-var utils = require('./util/utils');
+var GitRepo = require('../../lib/gitrepo.js').GitRepo;
+
+var fs = require('fs');
+var mkdirp = require('mkdirp');
+var rimraf = require('rimraf');
+var path = require('path');
+var cp = require('child_process');
+var uuid = require('node-uuid');
 
 var DEFAULT_PAGE_SIZE = 20;
 
@@ -11,6 +18,73 @@ var DEFAULT_PAGE_SIZE = 20;
 
 var ProjectCtrl = function (config, Project, Tag) {
 
+    // -- private
+
+    function unlinkCurrentVersion(source, cb) {
+        if (fs.existsSync(source)) {
+            fs.unlink(source, cb);
+        }
+        else {
+            cb();
+        }
+    }
+
+
+    function linkCurrentVersion(source, destination, cb) {
+        fs.symlink(source, destination, 'dir', cb);
+    }
+
+    function buildProject(project, tag, shellCmd, cb) {
+        var remote = project.repo;
+        var tmpPath = path.join('/tmp', project.id, uuid.v4());
+        var repo = new GitRepo(remote, tmpPath, tag);
+        return repo.clone(function (err) {
+            if (err) {
+                return cb(err);
+            }
+            else {
+                var options = {
+                    cwd: tmpPath
+                };
+                return cp.exec(shellCmd, options, function (err) {
+                    if (err) {
+                        return cb(err);
+                    }
+                    return cb(null, tmpPath);
+                });
+            }
+        });
+    }
+
+    function deletePublishBuild(destination, cb) {
+        if (fs.existsSync(destination)) {
+            rimraf(destination, cb);
+        }
+        else {
+            cb();
+        }
+    }
+
+    function publishProjectBuild(project, buildPath, storePath, tag, cb) {
+        var projectPath = path.join(storePath, project.id);
+        return mkdirp(projectPath, 0755, function (err) {
+            if (err) {
+                return response.error(res, {});
+            }
+            var destination = path.join(projectPath, tag);
+            return deletePublishBuild(destination, function (err) {
+                if (err) {
+                    return cb(err);
+                }
+                return fs.rename(buildPath, destination, function (err) {
+                    if (err) {
+                        return cb(err);
+                    }
+                    return cb(null, destination);
+                });
+            });
+        });
+    }
     // -- param middlewares
 
     /**
@@ -22,8 +96,6 @@ var ProjectCtrl = function (config, Project, Tag) {
     this.loadProjectById = function (req, res, next) {
         var id = req.param('projectId');
         Project.findById(id, function (err, project) {
-
-            console.log(project);
 
             if (err) {
                 return response.error(res, err);
@@ -191,10 +263,45 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.body.tag
      */
     this.buildVersion = function (req, res) {
-        var version;
-        var data = [];
-        console.log(req.body);
-        return response.data(res, data);
+        var error;
+
+        if (!req.body.tag) {
+            error = [{property: 'tag', message: 'missing'}];
+            return response.error(res, error);
+        }
+        else if (!Project.isValidVersionTag(req.body.tag)) {
+            error = [{property: 'tag', message: 'invalid'}];
+            return response.error(res, error);
+        }
+        else if (req.project.getVersionIndex(req.body.tag) === -1) {
+            error = [{property: 'tag', message: 'unknown'}];
+            return response.error(res, error);
+        }
+
+        // @todo magic string, should come from project config or "jarvis.json" manifest file in checkout
+        var buildCmd = './jarvis.sh';
+
+        // build project into tmp dir
+        return buildProject(req.project, req.body.tag, buildCmd, function (err, tmpPath) {
+            if (err) {
+                return response.error(res, {});
+            }
+
+            // https://github.com/expressjs/timeout
+            if (!req.timedout) {
+
+                // copy project to http server public
+                var storePath = config.project.storePath;
+                // @todo magic string, should come from config
+                var buildPath = path.join(tmpPath, 'build');
+                return publishProjectBuild(req.project, buildPath, storePath, req.body.tag, function (err) {
+                    if (err) {
+                        return response.error(res, {});
+                    }
+                    return response.noContent(res);
+                });
+            }
+        });
     };
 
     /**
@@ -204,10 +311,46 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.body.tag
      */
     this.setCurrentVersion = function (req, res) {
-        var version;
-        var data = [];
-        console.log(req.body);
-        return response.data(res, data);
+        var error;
+
+        if (!req.body.tag) {
+            error = [{property: 'tag', message: 'missing'}];
+            return response.error(res, error);
+        }
+        else if (!Project.isValidVersionTag(req.body.tag)) {
+            error = [{property: 'tag', message: 'invalid'}];
+            return response.error(res, error);
+        }
+        else if (req.project.getVersionIndex(req.body.tag) === -1) {
+            error = [{property: 'tag', message: 'unknown'}];
+            return response.error(res, error);
+        }
+
+        var source = path.join(config.project.storePath, req.project.id, 'current');
+        var destination = path.join(config.project.storePath, req.project.id, req.body.tag);
+
+        // remove symlink
+        unlinkCurrentVersion(source, function (err) {
+            if (err) {
+                return response.error(res, err);
+            }
+
+            // create new symlink
+            linkCurrentVersion(destination, source, function (err) {
+                if (err) {
+                    return response.error(res, err);
+                }
+
+                // update project
+                req.project.currentVersionTag = req.body.tag;
+                req.project.save(function (err) {
+                    if (err) {
+                        return response.error(res, err);
+                    }
+                    return response.noContent(res);
+                });
+            });
+        });
     };
 
     // -- authorization middlewares
