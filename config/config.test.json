@@ -7,8 +7,10 @@
     "db": {
         "connection": "mongodb://localhost/cork_labs_jarvis_test"
     },
-    "project": {
-        "storePath": "/servers/store/cork-labs-test/cork-labs.src",
-        "baseUrl": "http://jarvis.cork-labs.test.org"
+    "models": {
+        "project": {
+            "storePath": "/servers/store/cork-labs-test/cork-labs.src",
+            "baseUrl": "http://jarvis.cork-labs.test.org"
+        }
     }
 }

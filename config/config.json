@@ -10,10 +10,21 @@
     "db": {
         "connection": "mongodb://localhost/cork_labs_jarvis"
     },
-    "project": {
-        "storePath": "/servers/store/cork-labs/cork-labs.src",
-        "baseUrl": "http://jarvis.cork-labs.org",
-        "githubUser": "cork-labs",
-        "travisUser": "cork-labs"
+    "models": {
+        "project": {
+            "storePath": "/servers/store/cork-labs/cork-labs.src",
+            "baseUrl": "http://jarvis.cork-labs.org",
+            "githubUser": "cork-labs",
+            "travisUser": "cork-labs"
+        }
+    },
+    "clients": {
+        "github": {
+            "salt": "7e6040aab0cbfca6125d",
+            "clientId": "24c0354754956135218e",
+            "clientSecret": "1c1dc6bc7e9c0f8a6ffb7bc43cff1012f6838984",
+            "callbackUrl": "http://cork-labs.org/oauth/github/callback",
+            "defaultScope": ""
+        }
     }
 }

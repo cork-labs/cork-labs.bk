@@ -1,18 +1,18 @@
 var request = require('request');
 var querystring = require('querystring');
 
-var GitHubApi = require("github");
+var GitHubApi = require('github');
 
 
 var Github = function (config) {
 
     function encodeStateId(id) {
-        return new Buffer(state._id + '%%' + config.salt).toString('base64');
+        return new Buffer(id + '%%' + config.salt).toString('base64');
     }
 
     function decodeStateId(id) {
         var decode = new Buffer(id, 'base64');
-        decode = decode.replare(/%%.*/, '');
+        decode = decode.toString().replace(/%%.*/, '');
         return decode;
     }
 
@@ -42,35 +42,56 @@ var Github = function (config) {
         return req.query.code;
     };
 
-
-    this.extractUserIdFromUserObj = function (user) {
-        return user.id;
+    /**
+     * The user is sent back here with a code after visiting the provider.
+     *
+     * @param {string} appendPath An optional path to append to the configured redirect url.
+     * @returns {string} url
+     */
+    this.getCallbackUrl = function (appendPath) {
+        return config.callbackUrl + (appendPath || '');
     };
 
-    this.getOauthURL = function (oauthState) {
+    /**
+     * User is sent to this Url at the provider service.
+     *
+     * @param {object} oauthState The object id is used as the auth state.
+     * @param {string} callbackUrl The user is sent back here with a code after visiting the provider.
+     * @returns {string} url
+     */
+    this.getOAuthUrl = function (oauthState, callbackUrl) {
+
         var url = 'https://github.com/login/oauth/authorize';
 
         url += '?client_id=' + config.clientId;
-        url += '&redirect_uri=' + oauthState.redirectURI;
-        url += '&scope=' + oauthState.requestedScope || config.defaultScope;
+        url += '&redirect_uri=' + callbackUrl;
+        url += '&scope=' + (oauthState.metadata.requestedScope || config.defaultScope);
         url += '&state=' + encodeStateId(oauthState._id);
 
         return url;
-    }
+    };
+
+    /**
+     * Users can review and revoke their application authorizations from the settings screen within GitHub.
+     *
+     * @returns {string} url
+     */
+    this.getReviewUrl = function () {
+        return 'https://github.com/settings/connections/applications/' + config.clientId;
+    };
 
     /**
      * Exchanges the code for an access token
      *
-     * @param {object} oauthState Contains the redirectURI used to acquire the code.
-     * @param {string} code       The temporary code returned by the provider.
+     * @param {object} oauthState Contains the "code" and "redirectURI" used to acquire the access token.
      * @param {function(err, token)} cb
      */
     this.getAccessToken = function (oauthState, code, cb) {
         var data = {
-            'client_id': config.clientId,
-            'client_secret': config.clientSecret,
-            'code': code,
-            'redirect_uri': oauthState.redirectURI,
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            redirect_uri: oauthState.metadata.callbackUrl,
+            code: code
         };
         var options = {
             url: 'https://github.com/login/oauth/access_token',
@@ -78,21 +99,24 @@ var Github = function (config) {
             form: data
         };
 
-        request(options, function (err, response, body) {
+        console.log(data, options);
+
+        return request(options, function (err, response, body) {
             if (err) {
-                return cb('oauth.fail');
+                return cb('github.get-access-token.error.request');
             }
             var data = querystring.parse(body);
+
             if (!data.access_token) {
-                return cb('oauth.error.' + data.error);
+                return cb('github.get-access-token.provider-error.' + data.error);
             }
             var ret = {
-                accessToken: data.access_token
+                accessToken: data.access_token,
+                acceptedScope: data.scope
             }
             return cb(null, ret);
         });
     };
-
 
     // -- API
 
@@ -100,17 +124,17 @@ var Github = function (config) {
      * @param {string} accessToken
      * @param {function(err, token)} cb
      */
-    this.getMe = function (accessToken, cb) {
+    this.getUser = function (accessToken, cb) {
 
         var github = new GitHubApi({
-            version: "3.0.0"
+            version: '3.0.0'
         });
         github.authenticate({
-            type: "oauth",
+            type: 'oauth',
             token: accessToken
         });
         var options = {};
-        github.user.get(options, function (err, res) {
+        return github.user.get(options, function (err, res) {
             if (err) {
                 return cb(err);
             }
@@ -126,10 +150,10 @@ var Github = function (config) {
     this.getUserRepos = function (accessToken, user, cb) {
 
         var github = new GitHubApi({
-            version: "3.0.0"
+            version: '3.0.0'
         });
         github.authenticate({
-            type: "oauth",
+            type: 'oauth',
             token: accessToken
         });
         var options = {
@@ -165,10 +189,10 @@ var Github = function (config) {
     this.getRepoBranches = function (accessToken, user, repo, cb) {
 
         var github = new GitHubApi({
-            version: "3.0.0"
+            version: '3.0.0'
         });
         github.authenticate({
-            type: "oauth",
+            type: 'oauth',
             token: accessToken
         });
         var options = {
@@ -208,10 +232,10 @@ var Github = function (config) {
         var name = parts[1];
 
         var github = new GitHubApi({
-            version: "3.0.0"
+            version: '3.0.0'
         });
         github.authenticate({
-            type: "oauth",
+            type: 'oauth',
             token: accessToken
         });
         var options = {

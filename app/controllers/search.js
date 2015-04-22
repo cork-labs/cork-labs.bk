@@ -10,6 +10,27 @@ var DEFAULT_PAGE_SIZE = 20;
 // -- controller
 
 var SearchCtrl = function (config, Project, Tag) {
+    var self = this;
+
+
+    // -- param middlewares
+
+    self.prepare = {};
+
+
+    // -- validation middlewares
+
+    self.validate = {};
+
+
+    // -- authorization middlewares
+
+    self.authorize = {};
+
+
+    // -- route controllers
+
+    self.handle = {};
 
 
     /**
@@ -22,7 +43,7 @@ var SearchCtrl = function (config, Project, Tag) {
      * @expects req.body.offset
      * @expects req.body.limit
      */
-    this.search = function (req, res) {
+    self.handle.search = function (req, res) {
         var offset = req.body.offset > 0 ? req.body.offset : 0;
         var limit = req.body.limit > 0 ? req.body.limit : DEFAULT_PAGE_SIZE;
         var options = {
@@ -39,7 +60,7 @@ var SearchCtrl = function (config, Project, Tag) {
                 projects = projects.map(function (project) {
                     return project.asObject();
                 });
-                return response.collectionContinuous(res, projects, offset, limit, count);
+                return response.data(res, projects, response.getCollectionContinuousMeta(offset, limit, count));
             });
         });
     };

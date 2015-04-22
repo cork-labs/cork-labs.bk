@@ -5,9 +5,12 @@
 // -- controller
 
 var UserCtrl = function (config, User, github) {
+    var self = this;
 
 
     // -- param middlewares
+
+    self.prepare = {};
 
     /**
      * loads a user by id
@@ -15,7 +18,7 @@ var UserCtrl = function (config, User, github) {
      * @expects req.params.userId
      * @populates req.user
      */
-    this.loadUserById = function(req, res, next) {
+    self.prepare.loadUserById = function(req, res, next) {
         var id = req.param('userId');
         User.findById(id, function (err, user) {
             if (err) {
@@ -37,7 +40,7 @@ var UserCtrl = function (config, User, github) {
      * @expects req.session.user as a fallback
      * @populates req.user
      */
-    this.loadSessionUser = function (req, res, next) {
+    self.prepare.loadSessionUser = function (req, res, next) {
         // we already had it loading
         if (req.user) {
             return next();
@@ -58,40 +61,44 @@ var UserCtrl = function (config, User, github) {
     };
 
 
-    // -- route controllers
+    // -- validation middlewares
+
+    self.validate = {};
+
+
+    // -- authorization middlewares
+
+    self.authorize = {};
 
     /**
-     * updates current user profile data if needed
+     * is self
      *
-     * @expects req.oauthState
      * @expects req.user
-     * @populates req.user
+     * @expects req.session.user
      */
-    this.updateGitHubProfile = function (req, res, next) {
-        // skip if user has stored user data before
-        if (req.user.hasProviderData(User.PROVIDER.github, 'user')) {
-            return next();
+    self.authorize.isSelf = function (req, res, next) {
+        if (req.session.user.id !== req.user.id) {
+            return response.unauthorized(res);
         }
-        // load me from github API
-        var token = req.user.getProviderToken(User.PROVIDER.github);
-        github.getMe(token, function (err, me) {
-            if (err) {
-                console.log('### controller.user.updateGitHubProfile getMe "' + req.user.email + '" ERROR:', err, err.stack);
-                return next('github.me');
-            }
-            // and save it
-            User.updateProviderData(req.user, User.PROVIDER.github, 'user', me, function (err) {
-                if (err) {
-                    console.log('### controller.user.loadSessionUser updateProviderData "' + req.user.email + '" ERROR:', err, err.stack);
-                    return next('save.user');
-                }
-                return next();
-            });
-        });
+        return next();
+    };
+
+    /**
+     * has linked github account, has ahtorize_token
+     *
+     * @expects req.user
+     */
+    self.authorize.hasRepoAccess = function (req, res, next) {
+        if (!req.user.hasRepoAccess()) {
+            return response.unauthorized(res);
+        }
+        return next();
     };
 
 
     // -- route controllers
+
+    self.handle = {};
 
     /**
      *  list users
@@ -99,7 +106,7 @@ var UserCtrl = function (config, User, github) {
      * @expects req.param.page
      * @expects req.param.limit
      */
-    this.list = function (req, res) {
+    self.handle.list = function (req, res) {
         var page = (req.param('page') > 0 ? req.param('page') : 1) - 1;
         var limit = req.param('limit') > 0 ? req.param('limit') : 30;
         var options = {
@@ -116,7 +123,7 @@ var UserCtrl = function (config, User, github) {
                 users = users.map(function (user) {
                     return user.asObject();
                 });
-                return response.collectionPaged(res, users, page, limit, count);
+                return response.data(res, users, response.getCollectionPagedMeta(page, limit, count));
             });
         });
     };
@@ -126,8 +133,8 @@ var UserCtrl = function (config, User, github) {
      *
      * @expects req.user
      */
-    this.getUser = function (req, res) {
-        return response.model(res, map(req.user));
+    self.handle.getUser = function (req, res) {
+        return response.data(res, map(req.user));
     };
 
     /**
@@ -135,83 +142,8 @@ var UserCtrl = function (config, User, github) {
      *
      * @expects req.user
      */
-    this.update = function (req, res) {
+    self.handle.update = function (req, res) {
 
-    };
-
-    /**
-     * request activation for a pre-registered user
-     *
-     * @expects req.user
-     * @todo send email
-     */
-    this.requestActivation = function (req, res) {
-        //console.log('### controller.user.requestActivation', 'req.user', req.user);
-        User.requestActivation(req.user, function (err) {
-            if (err) {
-                console.log('### controller.user.requestActivation "' + req.user.email + '" ERROR:', err, err.stack);
-                return response.error(res, err);
-            }
-            return response.noContent(res);
-        });
-    };
-
-    /**
-     * retrieves the user list of repositories, persists this in provider.github.data
-     *
-     * @expects req.user
-     */
-    this.refreshRepositories = function (req, res) {
-        var token = req.user.getProviderToken(User.PROVIDER.github);
-        var gitHubUser = req.user.getProviderData(User.PROVIDER.github, 'user');
-        github.getUserRepos(token, gitHubUser.login, function (err, repos) {
-            if (err && err.code === 401) {
-                return response.unauthorized(res);
-            }
-            if (err) {
-                console.log('### controller.user.refreshRepositories getUserRepos "' + req.user.email + '" ERROR:', err, err.stack);
-                return response.error(res, err);
-            }
-            var data = {
-                date: Date.now(),
-                items: repos
-            };
-            User.updateProviderData(req.user, User.PROVIDER.github, 'repos', data, function (err) {
-                if (err) {
-                    console.log('### controller.user.refreshRepositories updateProviderData "' + req.user.email + '" ERROR:', err, err.stack);
-                    return response.error(res, err);
-                }
-                return response.model(res, mapMe(req.user));
-            });
-        });
-    };
-
-    /**
-     * retrieves the branches of a repository
-     *
-     * @expects req.user
-     * @expects req.query.repo
-     */
-    this.getRepoBranches = function (req, res) {
-        var token = req.user.getProviderToken(User.PROVIDER.github);
-        var gitHubUser = req.user.getProviderData(User.PROVIDER.github, 'user');
-        var repoFullName = req.query.repo;
-        var repo = repoFullName.split('/')[1];
-        if (!repo) {
-            var err = [{
-                property: 'repo',
-                message: 'required'
-            }];
-            return response.error(res, err);
-        }
-        github.getRepoBranches(token, gitHubUser.login, repo, function (err, branches) {
-            if (err) {
-                console.log('### controller.user.getRepoBranches "' + req.user.email + '" ERROR:', err, err.stack);
-                return response.error(res, err);
-            }
-            var data = branches;
-            return response.model(res, branches);
-        });
     };
 
     /**
@@ -219,40 +151,10 @@ var UserCtrl = function (config, User, github) {
      *
      * @expects req.user
      */
-    this.remove = function (req, res, id) {
+    self.handle.remove = function (req, res, id) {
         req.user.remove(function (err){
 
         });
-    };
-
-
-    // -- authorization middlewares
-
-    this.authorize = {};
-
-    /**
-     * is self
-     *
-     * @expects req.user
-     * @expects req.session.user
-     */
-    this.authorize.isSelf = function (req, res, next) {
-        if (req.session.user.id !== req.user.id) {
-            return response.unauthorized(res);
-        }
-        return next();
-    };
-
-    /**
-     * has linked github account, has ahtorize_token
-     *
-     * @expects req.user
-     */
-    this.authorize.hasRepoAccess = function (req, res, next) {
-        if (!req.user.hasRepoAccess()) {
-            return response.unauthorized(res);
-        }
-        return next();
     };
 
 }

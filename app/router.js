@@ -29,96 +29,101 @@ var Router = function (config, ctrls) {
 
         // -- auth
 
-        exp.route('/auth/login')
+        exp.route('/auth/sign-in')
             .post(ctrls.auth.authorize.isAnonymous)
-            .post(ctrls.auth.login);
+            .post(ctrls.auth.handle.signIn);
 
         exp.route('/auth/heartbeat')
-            .get(ctrls.auth.heartbeat);
+            .get(ctrls.auth.handle.heartbeat);
 
         exp.route('/auth/me')
-            .get(ctrls.auth.authorize.isAuthenticated)
-            .get(ctrls.auth.me);
+            .get(ctrls.auth.handle.me);
 
-        exp.route('/auth/logout')
-            .post(ctrls.auth.logout);
+        exp.route('/auth/sign-out')
+            .post(ctrls.auth.handle.signOut);
 
-        exp.route('/oauth/github/callback/workspace')
-            .get(ctrls.oauth.setupCallbackHandler)
-            .get(ctrls.oauth.loadOauthStateForGitHub)
-            .get(ctrls.oauth.gitHubCallback)
-            .get(ctrls.oauth.loadUserByAccessToken)
-            .get(ctrls.oauth.checkOauthUnique)
-            .get(ctrls.user.loadSessionUser) // only loads if loadUserByAccessToken() didn't find the session user
-            .get(ctrls.oauth.updateUserToken) // only updates if user authorization_token not same current oauth state token
-            .get(ctrls.user.updateGitHubProfile); // only updates if user doesn't have github.data.user
+        // -- oauth
 
+        exp.route('/oauth/:provider/sign-in')
+            .post(ctrls.auth.authorize.isAnonymous)
+            .post(ctrls.oauth.prepare.setContext)
+            .post(ctrls.oauth.prepare.createOAuthState)
+            .post(ctrls.oauth.handle.getSignInUrl);
+
+        exp.route('/oauth/:provider/callback/sign-in')
+            .get(ctrls.oauth.prepare.setupErrorRedirect)
+            .get(ctrls.auth.authorize.isAnonymous)
+            .get(ctrls.oauth.prepare.setContext)
+            .get(ctrls.oauth.prepare.loadOAuthState)
+            .get(ctrls.oauth.prepare.updateOAuthState)
+            .get(ctrls.oauth.prepare.loadUserByAccessToken)
+            .get(ctrls.oauth.handle.callbackSignIn);
 
         // -- search
 
         exp.route('/search')
-            .post(ctrls.search.search);
+            .post(ctrls.search.handle.search);
 
         // -- project
 
         exp.route('/tag')
-            .get(ctrls.tag.list);
+            .get(ctrls.tag.handle.list);
 
         exp.route('/tag/search')
-            .post(ctrls.tag.search);
+            .post(ctrls.tag.handle.search);
 
         exp.route('/tag/:tagId')
             .get(cors.all)
-            .get(ctrls.tag.loadTagById)
-            .get(ctrls.tag.get);
+            .get(ctrls.tag.prepare.loadTagById)
+            .get(ctrls.tag.handle.get);
 
         exp.route('/tag')
-            .post(ctrls.tag.create);
+            .post(ctrls.tag.handle.create);
 
         exp.route('/tag/:tagId')
-            .put(ctrls.tag.loadTagById)
-            .put(ctrls.tag.update);
+            .put(ctrls.tag.prepare.loadTagById)
+            .put(ctrls.tag.handle.update);
 
         // -- project
 
         exp.route('/project')
-            .get(ctrls.project.list);
+            .get(ctrls.project.handle.list);
 
         // exp.route('/project')
-        //     .post(ctrls.project.create);
+        //     .post(ctrls.project.handle.create);
 
         exp.route('/project/:projectId')
             .get(cors.all)
-            .get(ctrls.project.loadProjectById)
-            .get(ctrls.project.get);
+            .get(ctrls.project.prepare.loadProjectById)
+            .get(ctrls.project.handle.get);
 
         exp.route('/project/:projectId/versions')
             .get(cors.all)
-            .get(ctrls.project.loadProjectById)
-            .get(ctrls.project.getProjectVersions);
+            .get(ctrls.project.prepare.loadProjectById)
+            .get(ctrls.project.handle.getProjectVersions);
 
         exp.route('/project')
-            .post(ctrls.project.create);
+            .post(ctrls.project.handle.create);
 
         exp.route('/project/search')
-            .post(ctrls.project.search);
+            .post(ctrls.project.handle.search);
 
         exp.route('/project/:projectId/build')
-            .post(ctrls.project.loadProjectById)
+            .post(ctrls.project.prepare.loadProjectById)
             .post(timeout(1200000))
-            .post(ctrls.project.buildVersion);
+            .post(ctrls.project.handle.buildVersion);
 
         exp.route('/project/:projectId/current-version')
-            .post(ctrls.project.loadProjectById)
-            .post(ctrls.project.setCurrentVersion);
+            .post(ctrls.project.prepare.loadProjectById)
+            .post(ctrls.project.handle.setCurrentVersion);
 
         exp.route('/project/:projectId')
-            .put(ctrls.project.loadProjectById)
-            .put(ctrls.project.update);
+            .put(ctrls.project.prepare.loadProjectById)
+            .put(ctrls.project.handle.update);
 
         // exp.route('/project/:projectId')
-        //     .delete(ctrls.project.loadProjectById)
-        //     .delete(ctrls.project.remove);
+        //     .delete(ctrls.project.prepare.loadProjectById)
+        //     .delete(ctrls.project.handle.remove);
 
     }
 

@@ -2,6 +2,9 @@ var express = require('express');
 var expCompress = require('compression');
 var expLogger = require('morgan');
 var expBodyParser = require('body-parser');
+var expCookieParser = require('cookie-parser');
+var expSession = require('express-session');
+var mongoStore = require('connect-mongo')(expSession);
 
 var winston = require('winston');
 
@@ -9,8 +12,6 @@ var pkg = require('../package.json');
 var domain = require('domain');
 var env = process.env.NODE_ENV || 'development';
 var response = require('./controllers/util/responses');
-
-var mongoose = require('mongoose');
 
 
 var App  = function(exp, config, router) {
@@ -49,6 +50,7 @@ var App  = function(exp, config, router) {
         requestDomain.run(next);
     });
 
+    exp.use(expCookieParser());
     exp.use(expBodyParser());
     exp.use(function (req, res, next) {
         if (env === 'development') {
@@ -70,18 +72,38 @@ var App  = function(exp, config, router) {
         next();
     });
 
+    // express/mongo session storage
+    exp.use(expSession({
+        secret: pkg.name,
+        store: new mongoStore({
+            url: config.db.connection,
+            collection : 'sessions'
+        })
+    }));
+
     // Bootstrap routes
     router.addRoutes(exp);
 
     // global error handler
     exp.use(function (err, req, res, next) {
-        console.log('!@£$ ERROR: ' + err.name);
-        console.error(err.stack);
-        if (err.name === 'ServiceUnavailableError') {
+
+        var normalized = response.getNormalizedError(err);
+        console.log('!@£$ ERROR: ' + (err.name || normalized.message));
+        console.error(normalized);
+        if(err.stack) {
+            console.error(err.stack);
+        }
+        if (req.errorRedirectUrl) {
+            var msg = normalized.message;
+            var redirectUrl = req.errorRedirectUrl + '?msg=' + msg;
+            // return response.redirect(res, redirectUrl);
+            return response.error(res, normalized);
+        }
+        else if (err.name === 'ServiceUnavailableError') {
             return response.timeout(res);
         }
         else {
-            return response.internalError(res);
+            return response.error(res, normalized);
         }
     })
 

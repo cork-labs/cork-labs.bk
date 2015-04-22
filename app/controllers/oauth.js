@@ -7,31 +7,68 @@ var response = require('./util/responses');
 
 // -- controller
 
-var OAuthCtrl = function (config, OauthState, User, Github) {
+var OAuthCtrl = function (config, providers, OAuthState, User) {
+    var self = this;
+
 
     // -- param middlewares
 
-    /**
-     * loads oauth state by token
-     *
-     * @expects req.oauth see setupCallbackHandler()
-     * @populates req.oauthState
-     */
-    this.loadOauthStateForGitHub = function (req, res, next) {
-        //console.log('### controller.oauth.loadOauthStateForGitHub - query:', req.query);
+    self.prepare = {};
 
-        switch (req.oauth.provider) {
-            case 'github':
-                stateId = github.getCallbackStateId(req);
+    /**
+     * in case the request ends in an error, app.js redirects to app
+     *
+     * @populates req.errorRedirect
+     */
+    self.prepare.setupErrorRedirect = function (req, res, next) {
+
+        req.errorRedirectUrl = config.app.url;
+
+        return next();
+    };
+
+    /**
+     * configures oauth callback context
+     *
+     * @expects path in the form /oauth/<provider>/<mode>[/<type>]
+     * @expects req.params.provider
+     * @populates req.oauthContext
+     */
+    self.prepare.setContext = function (req, res, next) {
+        // ['', 'oauth', 'github', 'sign-in'] OR ['', 'oauth', 'github', 'callback', 'sign-in']
+        var parts = req.path.split('/');
+
+        // validate provider
+        if (!providers.hasOwnProperty(req.params.provider)) {
+            return response.notFound(res);
         }
 
-        OauthState.findById(stateId, function (err, oauthState) {
+        req.provider = providers[req.params.provider];
+        req.oauthContext = {};
+        req.oauthContext.isCallback = parts[3] === 'callback';
+        req.oauthContext.flags = req.oauthContext.isCallback ? parts.slice(4) : parts.slice(3);
+
+        if (req.oauthContext.isCallback) {
+            req.oauthContext.code = req.provider.extractCallbackCode(req);
+        }
+
+        return next();
+    };
+
+    /**
+     * creates an oauthState
+     *
+     * @expects req.provider
+     * @expects req.params.provider
+     * @expects req.oauthContext
+     * @populates req.oauthState
+     */
+    self.prepare.createOAuthState = function (req, res, next) {
+        console.log('### controller.oauth.prepare.createOAuthState - query:', req.query);
+
+        return OAuthState.create(req.params.provider, req.oauthContext, function (err, oauthState) {
             if (err) {
-                console.log('### controller.oauth.loadOauthStateForGitHub "' + stateId + '" ERROR:', err, err.stack);
-                return next('state.error');
-             }
-            if (!oauthState) {
-                return next('state.invalid');
+                return next(response.getNormalizedError('oauth.error.create-state'));
             }
             req.oauthState = oauthState;
             return next();
@@ -39,19 +76,45 @@ var OAuthCtrl = function (config, OauthState, User, Github) {
     };
 
     /**
-     * loads user according to req.oauthState.provider and req.oauthState.accessToken
+     * loads oauth state by token
      *
-     * @expects req.oauthState.provider
-     * @expects req.oauthState.accessToken
+     * @expects req.provider
+     * @expects req.params.provider
+     * @expects req.oauthContext
+     * @populates req.oauthState
+     */
+    self.prepare.loadOAuthState = function (req, res, next) {
+        console.log('### controller.oauth.prepare.loadOAuthState - query:', req.query);
+
+        var stateId = req.provider.extractCallbackStateId(req);
+
+        return OAuthState.findById(stateId, function (err, oauthState) {
+            if (err) {
+                return next(response.getNormalizedError('oauth.error.load-state'));
+            }
+            if (!oauthState) {
+                return next(response.getNormalizedError('oauth.error.load-state', 'invalid state'));
+            }
+            req.oauthState = oauthState;
+            return next();
+        });
+    };
+
+    /**
+     * loads user with a certain provider/accessToken
+     *
+     * @expects req.provider
+     * @expects req.params.provider (requires "accessToken" to be populated)
+     * @expects req.oauthState
      * @populates req.user
      */
-    this.loadUserByAccessToken = function (req, res, next) {
-        //console.log('### controller.oauth.loadUserByAccessToken');
+    self.prepare.loadUserByAccessToken = function (req, res, next) {
+        console.log('### controller.oauth.prepare.loadUserByAccessToken');
 
-        User.findByOauthToken(req.oauthState.provider, req.oauthState.accessToken, function(err, user) {
+        return User.findByOauthToken(req.params.provider, req.oauthState.accessToken, function(err, user) {
             if (err) {
-                console.log('### controller.oauth.loadUserByAccessToken "' + req.oauthState.provider + ':' + req.oauthState.accessToken + '" ERROR:', err, err.stack);
-                return next('load.user');
+                console.log('### controller.oauth.prepare.loadUserByAccessToken "' + req.params.provider + ':' + req.oauthState.accessToken + '" ERROR [findByOauthToken]:', err, err.stack);
+                return next(response.getNormalizedError('oauth.error.load-user'));
             }
             req.user = user;
             return next();
@@ -59,102 +122,139 @@ var OAuthCtrl = function (config, OauthState, User, Github) {
     };
 
     /**
-     * makes sure that any user that matched the accessToken is the current session user
+     * update oauth state with access token
      *
-     * @expects req.session.user.id
-     * @expects req.user
+     * @expects req.provider
+     * @expects req.oauthState (populates "accessToken" and "acceptedScope" OR "error")
      */
-    this.checkOauthUnique = function (req, res, next) {
-        //console.log('### controller.oauth.checkOauthUnique', 'req.user:', req.user);
-        //console.log('### controller.oauth.checkOauthUnique', 'req.session.user:', req.session.user);
+    self.prepare.updateOAuthState = function (req, res, next) {
+        console.log('### controller.oauth.prepare.updateOAuthState - oauthState:', req.oauthState);
 
-        if (req.user && req.user.id !== req.session.user.id) {
-            return next('not.unique');
-        }
-        return next();
+        return req.provider.getAccessToken(req.oauthState, req.oauthContext.code, function (err, data) {
+            if (err) {
+                req.oauthState.error = 'Error: ' + err;
+                return req.oauthState.save(function () {
+                    console.log('### controller.oauth.prepare.updateOAuthState "' + req.oauthState._id + '" ERROR [getAccessToken]:', err, err.stack);
+                    console.log('ERROR', response.getNormalizedError('oauth.error.update-state', err));
+                    return next(response.getNormalizedError('oauth.error.update-state', err));
+                });
+            }
+            req.oauthState.accessToken = data.accessToken;
+            req.oauthState.acceptedScope = data.acceptedScope;
+            req.oauthState.save(function (err) {
+                if (err) {
+                    return next(response.getNormalizedError('oauth.error.update-state', 'save'));
+                }
+                return next();
+            })
+        });
     };
-
-    // -- validation middlewares
-
-    // -- other middlewares
 
     /**
      * updates current user token with the provided one
-     * only updates if user authorization_token not same current oauth state token
+     * only updates if the user authorization_token is not same current oauth state token
      *
+     * @expects req.params.provider
      * @expects req.oauthState
      * @expects req.user
      */
-    this.updateUserToken = function (req, res, next) {
-        //console.log('### controller.oauth.updateUserToken', 'req.user', req.user, 'req.oauthState', req.oauthState);
+    // self.prepare.updateUserToken = function (req, res, next) {
+    //     //console.log('### controller.oauth.prepare.updateUserToken', 'req.user', req.user, 'req.oauthState', req.oauthState);
 
-        // we already had the token
-        if (req.user.getProviderToken(User.PROVIDER.github) === req.oauthState.accessToken) {
-            return next();
-        }
+    //     // we already had the token
+    //     if (req.user.getProviderToken(req.params.provider) === req.oauthState.accessToken) {
+    //         return next();
+    //     }
 
-        // stores/updates the oath state
-        User.updateProviderState(req.user, req.oauthState, function (err) {
-            if (err) {
-                console.log('### controller.oauth.updateUserToken "' + req.oauthState._id + '" ERROR:', err, err.stack);
-                return next('save.oauthState');
-            }
-            return next();
-        });
-    };
+    //     // stores/updates the oath state
+    //     return User.updateProviderState(req.user, req.oauthState, function (err) {
+    //         if (err) {
+    //             console.log('### controller.oauth.prepare.updateUserToken "' + req.oauthState._id + '" ERROR [updateProviderState]:', err, err.stack);
+    //             return next(response.getNormalizedError('oauth.error.update-token'));
+    //         }
+    //         return next();
+    //     });
+    // };
+
+
+    // -- validation middlewares
+
+    self.validate = {};
+
+
+    // -- authorization middlewares
+
+    self.authorize = {};
 
 
     // -- route controllers
 
+    self.handle = {};
+
     /**
-     * returns oauth redirection URI
+     * GET /oauth/:provider/sign-in
+     *
+     * returns AUuth provider redirection URI for sign-in
      *
      * @expects req.oauthState
      */
-    this.gitHubRedirect = function (req, res) {
-        //console.log('### controller.oauth.gitHubRedirect - oauthState:', req.oauthState);
+    self.handle.getSignInUrl = function (req, res) {
 
-        var data = {
-            authURL: github.getOauthURL(req.oauthState.redirectURI, req.oauthState.id)
-        }
+        var callbackUrl = req.provider.getCallbackUrl('/sign-in');
+        var redirectUrl = req.provider.getOAuthUrl(req.oauthState, callbackUrl);
 
-        return response.model(res, data);
+        req.oauthState.metadata.callbackUrl = callbackUrl;
+
+        req.oauthState.save(function (err) {
+            if (err) {
+                return next(response.getNormalizedError('oauth.error.get-sign-in-url', 'save-state'));
+            }
+            var data = {
+                url: redirectUrl
+            }
+            return response.data(res, data);
+        })
+
     };
 
     /**
-     * github callback
+     * GET /oauth/:provider/callback/sign-in
      *
-     * @expects req.query[paramToken] see clients/github getCallbackStateId
-     * @expects req.query[paramCode] see clients/github getCallbackStateId
-     * @expects req.oauthState
-     * @populates req.oauthState.error
-     * @populates req.oauthState.acessToken
-     * @populates req.oauthState.acceptedScope
+     * handles OAuth provider callback for sign-in
+     * - invokes the provider "user" API
+     * - looks for this provider user in the User collection
+     *   - if user is not found, creates one
+     * - sets the session user
+     * - responds with a "sign-up" flag allowing the client to act accordingly in case it is a new user
+     *
+     * @expects req.oauthState with "accessToken"
      */
-    this.gitHubCallback = function (req, res, next) {
-        //console.log('### controller.oauth.gitHubCallback - oauthState:', req.oauthState);
-        //console.log('### controller.oauth.gitHubCallback - query:', req.query);
+    self.handle.callbackSignIn = function (req, res, next) {
+        console.log('### controller.oauth.handle.callbackSignIn - oauthState:', req.oauthState);
 
-        var code = github.getCallbackCode(req);
-
-        github.getAccessToken(req.oauthState.redirectURI, code, function (err, data) {
+        return req.provider.getUser(req.oauthState.accessToken, function(err, providerUser) {
             if (err) {
-                req.oauthState.error = 'Error: ' + err;
-                req.oauthState.save(function () {
-                    console.log('### controller.oauth.gitHubCallback "' + req.oauthState._id + '" ERROR:', err, err.stack);
-                    return next('oauth.error.' + err);
-                });
+                console.log('### controller.oauth.handle.callbackSignIn "' + req.params.provider + ':' + req.oauthState.accessToken + '" ERROR [getUser]:', err, err.stack);
+                return next(response.getNormalizedError('oauth.error.callback-sign-in', 'provider.get-user'));
             }
-            else {
-                req.oauthState.accessToken = data.access_token;
-                req.oauthState.acceptedScope = data.scope;
-                req.oauthState.save(function (err) {
+            return User.findByProviderId(req.params.provider, providerUser.id, function(err, user) {
+                if (err) {
+                    console.log('### controller.oauth.handle.callbackSignIn "' + req.params.provider + ':' + req.oauthState.accessToken + '" ERROR [findByProviderId]:', err, err.stack);
+                    return next(response.getNormalizedError('oauth.error.callback-sign-in', 'user.find-by-provider-id'));
+                }
+                if (user) {
+                    req.session.user = user;
+                    return response.redirect(res, config.app.url);
+                }
+                return User.createFromProvider(req.params.provider, providerUser, req.oauthState, function (err, user) {
                     if (err) {
-                        return next('state.update');
+                        console.log('### controller.oauth.handle.callbackSignIn "' + req.params.provider + ':' + req.oauthState.accessToken + '" ERROR: [createFromProvider]', err, err.stack);
+                        return next(response.getNormalizedError('oauth.error.callback-sign-in', 'user.create-from-provider'));
                     }
-                    return next();
-                })
-            }
+                    req.session.user = user;
+                    return response.redirect(res, config.app.url);
+                });
+            });
         });
     };
 
@@ -162,29 +262,11 @@ var OAuthCtrl = function (config, OauthState, User, Github) {
      * @expects req.oauthState
      * @expects req.user (if the token matched an existing user)
      */
-    this.gitHubSignIn = function (req, res, next) {
+    self.handle.gitHubSignIn = function (req, res, next) {
 
-        if (req.oauthState.type !== OauthState.TYPE.activation) {
+        if (req.oauthState.type !== OAuthState.TYPE.activation) {
 
         }
-    };
-
-    // -- authorization middlewares
-
-    // -- error handling middleware
-
-    /**
-     * configures error handler for a callback
-     *
-     * @populates req.oauth
-     */
-    this.setupCallbackHandler = function (req, res, next) {
-        var parts = req.path.split('/');
-        req.oauth = {
-            provider: parts[2],
-            type: parts[5]
-        };
-        return next();
     };
 
 };

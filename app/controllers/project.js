@@ -17,6 +17,8 @@ var DEFAULT_PAGE_SIZE = 20;
 // -- controller
 
 var ProjectCtrl = function (config, Project, Tag) {
+    var self = this;
+
 
     // -- private
 
@@ -85,7 +87,11 @@ var ProjectCtrl = function (config, Project, Tag) {
             });
         });
     }
+
+
     // -- param middlewares
+
+    self.prepare = {};
 
     /**
      * loads a project by id
@@ -93,7 +99,7 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.params.projectId
      * @populates req.project
      */
-    this.loadProjectById = function (req, res, next) {
+    self.prepare.loadProjectById = function (req, res, next) {
         var id = req.param('projectId');
         Project.findById(id, function (err, project) {
 
@@ -108,17 +114,27 @@ var ProjectCtrl = function (config, Project, Tag) {
         });
     };
 
+
     // -- validation middlewares
+
+    self.validate = {};
+
+
+    // -- authorization middlewares
+
+    self.authorize = {};
 
 
     // -- route controllers
+
+    self.handle = {};
 
     /**
      * POST /project
      *
      * saves a new project
      */
-    this.create = function (req, res) {
+    self.handle.create = function (req, res) {
 
         var project = new Project(req.body);
         project.save(function (err) {
@@ -136,7 +152,7 @@ var ProjectCtrl = function (config, Project, Tag) {
      *
      * @expects req.project
      */
-    this.update = function (req, res) {
+    self.handle.update = function (req, res) {
 
         req.project.update(req.body, function (newTags, removedTags) {
             req.project.save(function (err) {
@@ -154,7 +170,7 @@ var ProjectCtrl = function (config, Project, Tag) {
                         console.log('tag: ' + tag.name, ' project count--');
                     });
                 });
-                return response.model(res, req.project.asObject());
+                return response.data(res, req.project.asObject());
             });
         });
     };
@@ -167,7 +183,7 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.param.page
      * @expects req.param.limit
      */
-    this.list = function (req, res) {
+    self.handle.list = function (req, res) {
         var page = (req.param('page') > 0 ? req.param('page') : 1) - 1;
         var limit = req.param('limit') > 0 ? req.param('limit') : 30;
         var options = {
@@ -183,7 +199,7 @@ var ProjectCtrl = function (config, Project, Tag) {
                 projects = projects.map(function (project) {
                     return project.asObject();
                 });
-                return response.collectionPaged(res, projects, page, limit, count);
+                return response.data(res, projects, response.getCollectionPagedMeta(page, limit, count));
             });
         });
     };
@@ -199,7 +215,7 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.body.limit
      */
 
-    this.search = function (req, res) {
+    self.handle.search = function (req, res) {
         var offset = req.body.offset > 0 ? req.body.offset : 0;
         var limit = req.body.limit > 0 ? req.body.limit : DEFAULT_PAGE_SIZE;
         var options = {
@@ -216,7 +232,7 @@ var ProjectCtrl = function (config, Project, Tag) {
                 projects = projects.map(function (project) {
                     return project.asObject();
                 });
-                return response.collectionContinuous(res, projects, offset, limit, count);
+                return response.data(res, projects, response.getCollectionContinuousMeta(offset, limit, count));
             });
         });
     };
@@ -228,8 +244,8 @@ var ProjectCtrl = function (config, Project, Tag) {
      *
      * @expects req.project
      */
-    this.get = function (req, res) {
-        return response.model(res, req.project.asObject());
+    self.handle.get = function (req, res) {
+        return response.data(res, req.project.asObject());
     };
 
     /**
@@ -239,7 +255,7 @@ var ProjectCtrl = function (config, Project, Tag) {
      *
      * @expects req.project
      */
-    this.getProjectVersions = function (req, res) {
+    self.handle.getProjectVersions = function (req, res) {
         var version;
         var data = [];
         for (var ix = 0; ix < req.project.versions.length; ix++) {
@@ -262,7 +278,7 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.project
      * @expects req.body.tag
      */
-    this.buildVersion = function (req, res) {
+    self.handle.buildVersion = function (req, res) {
         var error;
 
         if (!req.body.tag) {
@@ -310,7 +326,7 @@ var ProjectCtrl = function (config, Project, Tag) {
      * @expects req.project
      * @expects req.body.tag
      */
-    this.setCurrentVersion = function (req, res) {
+    self.handle.setCurrentVersion = function (req, res) {
         var error;
 
         if (!req.body.tag) {

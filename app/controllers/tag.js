@@ -7,8 +7,12 @@ var response = require('./util/responses');
 // -- controller
 
 var TagCtrl = function (config, Tag) {
+    var self = this;
+
 
     // -- param middlewares
+
+    self.prepare = {};
 
     /**
      * loads a tag by id
@@ -16,7 +20,7 @@ var TagCtrl = function (config, Tag) {
      * @expects req.params.tagId
      * @populates req.tag
      */
-    this.loadTagById = function (req, res, next) {
+    self.prepare.loadTagById = function (req, res, next) {
         var id = req.param('tagId');
         Tag.findById(id, function (err, tag) {
             if (err) {
@@ -30,17 +34,27 @@ var TagCtrl = function (config, Tag) {
         });
     };
 
+
     // -- validation middlewares
+
+    self.validate = {};
+
+
+    // -- authorization middlewares
+
+    self.authorize = {};
 
 
     // -- route controllers
+
+    self.handle = {};
 
     /**
      * POST /tag
      *
      * saves a new tag
      */
-    this.create = function (req, res) {
+    self.handle.create = function (req, res) {
 
         var tag = new Tag(req.body);
         console.log('this.create', tag);
@@ -60,14 +74,14 @@ var TagCtrl = function (config, Tag) {
      *
      * @expects req.tag
      */
-    this.update = function (req, res) {
+    self.handle.update = function (req, res) {
 
         req.tag.update(req.body);
         req.tag.save(function (err) {
             if (err) {
                 return response.error(res, err);
             }
-            return response.model(res, req.tag.asObject());
+            return response.data(res, req.tag.asObject());
         });
     };
 
@@ -76,7 +90,7 @@ var TagCtrl = function (config, Tag) {
      *
      * list tags
      */
-    this.list = function (req, res) {
+    self.handle.list = function (req, res) {
         var options = {};
 
         Tag.list(options, function (err, tags) {
@@ -87,7 +101,7 @@ var TagCtrl = function (config, Tag) {
                 tags = tags.map(function (tag) {
                     return tag.asObject();
                 });
-                return response.collection(res, tags, count);
+                return response.data(res, tags, response.getCollectionMeta(count));
             });
         });
     };
@@ -99,7 +113,7 @@ var TagCtrl = function (config, Tag) {
      *
      * @expects req.body.terms
      */
-    this.search = function (req, res) {
+    self.handle.search = function (req, res) {
         var terms = req.body.terms;
 
         Tag.search(terms, function (err, tags) {
@@ -110,7 +124,7 @@ var TagCtrl = function (config, Tag) {
                 tags = tags.map(function (tag) {
                     return tag.asObject();
                 });
-                return response.collection(res, tags, count);
+                return response.data(res, tags, response.getCollectionMeta(count));
             });
         });
     };
@@ -122,11 +136,9 @@ var TagCtrl = function (config, Tag) {
      *
      * @expects req.tag
      */
-    this.get = function (req, res) {
-        return response.model(res, req.tag.asObject());
+    self.handle.get = function (req, res) {
+        return response.data(res, req.tag.asObject());
     };
-
-    // -- authorization middlewares
 
 };
 

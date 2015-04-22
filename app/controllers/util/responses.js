@@ -1,14 +1,27 @@
 /**
- * @param {object} err
+ * @param {string|array|object} err A string with the error name, an array of short validation errors, or an object with a mongoose validation error
+ * @param {object|string} detailsOrMessage
  * @return (object)
  */
-function normalizeError(err) {
-    var payload = {
-        error: {
-            message: 'error.internal',
-            details: {}
-        }
+function normalizeError(err, detailsOrMessage) {
+    var error = {
+        name: 'error.internal',
     };
+    if ('object' === typeof detailsOrMessage) {
+        error.details = detailsOrMessage;
+    }
+    else if ('string' === typeof detailsOrMessage) {
+        error.message = detailsOrMessage;
+    }
+
+    console.log('ERROR', error);
+
+    /**
+     * string errors
+     */
+    if ('string' === typeof err) {
+        error.name = err;
+    }
 
     // array errors (short validation errors)
     //
@@ -19,18 +32,17 @@ function normalizeError(err) {
     //     }
     // ]
     //
-    if ('object' === typeof err && err.hasOwnProperty('length')) {
-        payload.error.message = 'error.validation';
+    else if ('object' === typeof err && err.hasOwnProperty('length')) {
+        error.name = 'error.validation';
+        error.msg = error.message;
         for (var ix = 0; ix < err.length; ix++) {
             if (err[ix].hasOwnProperty('property')) {
-                payload.error.details[err[ix].property] = err[ix].message;
-            }
-            if (err[ix].hasOwnProperty('data')) {
-                payload.error.data = err[ix].data;
+                error.details[err[ix].property] = err[ix].message;
             }
         }
     }
-    // mongoose validation error
+
+    // mongoose validation error OR previously normalized errors
     //
     // {
     //     message: ...
@@ -44,34 +56,78 @@ function normalizeError(err) {
     // }
     //
     //
-    else if ('object' === typeof err && (err.hasOwnProperty('name') || err.hasOwnProperty('errors'))) {
+    else if ('object' === typeof err && (err.hasOwnProperty('name') || err.hasOwnProperty('message') || err.hasOwnProperty('errors'))) {
+        // do not override message
+        // it might be a previously normalized message
+        // or it might have been set via "detailsOrMessage" argument
+        error.message = error.message || err.message;
+        // mongoose error
         if (err.name === 'ValidationError') {
-            payload.error.message = 'error.validation';
+            error.name = 'error.validation';
         }
+        // other errors, make sure it's lowercased
+        else if ('string' === typeof err.name && err.name.length) {
+            error.name = err.name.toLowerCase();
+        }
+        // translate error
         if (err.hasOwnProperty('errors')) {
             for (var key in err.errors) {
-                if ('object' === typeof err.errors[key] && err.errors[key].hasOwnProperty('message')) {
-                    payload.error.details[key] = err.errors[key].message;
+                if ('string' === typeof err.errors[key]) {
+                    error.details[key] = err.errors[key];
+                }
+                else if ('object' === typeof err.errors[key] && err.errors[key].hasOwnProperty('message')) {
+                    error.details[key] = err.errors[key].message;
                 }
             }
         }
-        else {
-            console.log('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-            console.log('ERROR', err);
-            console.log('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>');
-        }
     }
 
-    return payload;
+    return error;
 };
 
 var response = {
 
-    data: function (res, data) {
-        res.json(200, data);
+    // -- meta helpers
+
+    getCollectionMeta: function (total) {
+        var meta = {
+            pagination: {
+                total: total
+            }
+        };
+        return meta;
     },
 
-    model: function (res, model, meta) {
+    getCollectionPagedMeta: function (page, limit, total) {
+        var meta = {
+            pagination: {
+                page: page + 1,
+                limit: limit,
+                total: total
+            }
+        };
+        return meta;
+    },
+
+    getCollectionContinuousMeta: function (offset, limit, total) {
+        var meta = {
+            pagination: {
+                offset: offset,
+                limit: limit,
+                total: total
+            }
+        };
+        return meta;
+    },
+
+
+    // -- expose
+
+    getNormalizedError: normalizeError,
+
+    // -- responses
+
+    data: function (res, model, meta) {
         var payload = {
             data: model
         };
@@ -81,56 +137,10 @@ var response = {
         res.json(200, payload);
     },
 
-    collection: function (res, models, total) {
-        var payload = {
-            data: models
-        }
-        if (arguments.length > 2) {
-            payload.meta = {
-                pagination: {
-                    total: total
-                }
-            };
-        }
-        res.json(200, payload);
-    },
-
-    collectionPaged: function (res, models, page, limit, total) {
-        var payload = {
-            data: models
-        }
-        if (arguments.length > 2) {
-            payload.meta = {
-                pagination: {
-                    page: page + 1,
-                    limit: limit,
-                    total: total
-                }
-            };
-        }
-        res.json(200, payload);
-    },
-
-    collectionContinuous: function (res, models, offset, limit, total) {
-        var payload = {
-            data: models
-        }
-        if (arguments.length > 2) {
-            payload.meta = {
-                pagination: {
-                    offset: offset,
-                    limit: limit,
-                    total: total
-                }
-            };
-        }
-        res.json(200, payload);
-    },
-
-    created: function (res, model) {
-        if (model) {
+    created: function (res, data) {
+        if (data) {
             var payload = {
-                data: model
+                data: data
             };
             res.json(201, payload);
         }
@@ -140,10 +150,10 @@ var response = {
         }
     },
 
-    accepted: function (res, model) {
-        if (model) {
+    accepted: function (res, data) {
+        if (data) {
             var payload = {
-                data: model
+                data: data
             };
             res.json(202, payload);
         }
@@ -182,36 +192,19 @@ var response = {
         res.json(503, payload);
     },
 
-    error: function (res, err) {
-        var payload = normalizeError(err);
-        if (payload.error.message === 'error.internal') {
-            res.json(500, payload);
+    error: function (res, err, code, details) {
+        var payload = {
+            error: normalizeError(err, details)
+        };
+        if (!code) {
+            code = (payload.error.message === 'error.validation') ? 422 : 500;
         }
-        else {
-            res.json(422, payload);
-        }
-    },
-
-    internalError: function (res, err) {
-        var payload;
-        if ('object' === typeof err) {
-            payload = normalizeError(err);
-        }
-        else {
-            payload = {
-                error: {
-                    message: 'error.internal',
-                    details: {}
-                }
-            };
-        }
-        res.json(500, payload);
+        res.json(code, payload);
     },
 
     redirect: function(res, target) {
         res.redirect(target);
-    }
-
+    },
 }
 
 module.exports = response;

@@ -66,19 +66,10 @@ module.exports = function(config) {
     };
 
     /**
-     * constants - account type
-     */
-    var ACCOUNT = {
-        free: 'free',
-        subscription: 'subscription',
-        premium: 'premium'
-    };
-
-    /**
      * constants - fields returned transparently on instance.asObject()
      */
-    var AS_OBJECT_PROPERTIES = ['name', 'email', 'pictureURL', 'createdDate'];
-    var AS_PRIVATE_OBJECT_PROPERTIES = ['status', 'role', 'provider', 'account', 'activatedDate'];
+    var AS_OBJECT_PROPERTIES = ['name', 'email', 'pictureUrl', 'createdDate'];
+    var AS_PRIVATE_OBJECT_PROPERTIES = ['status', 'roles', 'provider', 'activatedDate'];
 
     /**
      * utils - encrypt password
@@ -142,24 +133,17 @@ module.exports = function(config) {
                 message: 'invalid'
             }
         },
-        role: {
+        roles: [{
            type: String,
            enum: {
                values: [ROLE.admin, ROLE.user],
                message: 'invalid'
            }
-        },
+        }],
         provider: {
             type: String,
             enum: {
                 values: [PROVIDER.local, PROVIDER.github, PROVIDER.google, PROVIDER.twitter],
-                message: 'invalid'
-            }
-        },
-        account: {
-            type: String,
-            enum: {
-                values: [ACCOUNT.free, ACCOUNT.subscription, ACCOUNT.premium],
                 message: 'invalid'
             }
         },
@@ -171,10 +155,19 @@ module.exports = function(config) {
         email: {
             type: String,
             trim: true,
-            unique: true,
             default: ''
         },
-        pictureURL: {
+        location:  {
+            type: String,
+            trim: true,
+            default: ''
+        },
+        websiteUrl: {
+            type: String,
+            trim: true,
+            default: ''
+        },
+        pictureUrl: {
             type: String,
             trim: true,
             default: '/assets/images/profile-pic.jpg'
@@ -253,7 +246,7 @@ module.exports = function(config) {
     /**
      * validation / role / required
      */
-    UserSchema.path('role').required(true, 'required');
+    UserSchema.path('roles').required(true, 'required');
 
     /**
      * validation / provider / required
@@ -583,26 +576,34 @@ module.exports = function(config) {
          */
         PROVIDER: PROVIDER,
 
-        /**
-         * @constant ACCOUNT
-         */
-        ACCOUNT: ACCOUNT,
 
         /**
          * creates a pre-registration user
          *
-         * @param {string} email
-         * @returns {object} New instance of User
+         * @param {string} provider
+         * @param {object} providerUser
+         * @param {object} oauthState
+         * @param {function(err, data)} cb
          */
-         newPreRegistration: function (email) {
+         createFromProvider: function (provider, providerUser, oauthState, cb) {
             var user = new User({
-                status: STATUS.preregistration,
-                role: ROLE.user,
-                provider: PROVIDER.local,
-                account: ACCOUNT.free,
-                email: email
+                status: STATUS.active,
+                provider: provider,
+                roles: ROLE.user,
+                // @todo support provider maps (this is based on github user)
+                name: providerUser.name,
+                email: providerUser.email,
+                location: providerUser.location,
+                websiteUrl: providerUser.blog,
+                pictureUrl: providerUser.avatar_url,
             });
-            return user;
+            user.providers[provider] = {
+                state: oauthState,
+                data: {
+                    user: providerUser
+                }
+            }
+            return user.save(cb);
          },
 
         /**
@@ -612,12 +613,12 @@ module.exports = function(config) {
          * @param {string} password
          * @param {function(err, data)} cb
          */
-        loginLocal: function (email, password, cb) {
-            //console.log('### model.user.loginLocal', 'email:', email);
+        signInLocal: function (email, password, cb) {
+            //console.log('### model.user.signInLocal', 'email:', email);
             return this.findOne({email: email, provider: PROVIDER.local})
                 .exec(function (err, user) {
                     if (err) {
-                        console.log('### model.user.loginLocal "' + email + '" ERROR:', err, err.stack);
+                        console.log('### model.user.signInLocal "' + email + '" ERROR:', err, err.stack);
                         return cb(err);
                     }
                     if (!user) {
@@ -658,6 +659,22 @@ module.exports = function(config) {
         findByEmail: function (email, cb) {
             //console.log('### model.user.findByEmail', 'email:', email);
             return this.findOne({'email': email})
+                .exec(cb);
+        },
+
+        /**
+         * find by oauth token
+         *
+         * @param {string} provider
+         * @param {string} id
+         * @param {function(err, data)} cb
+         */
+        findByProviderId: function (provider, id, cb) {
+            //console.log('### model.user.findByProviderId', 'provider:', provider, 'id:', id);
+            // @todo validate provider
+            var criteria = {}
+            criteria['providers.' + provider + '.data.user.id'] = id
+            return this.findOne(criteria)
                 .exec(cb);
         },
 
@@ -773,7 +790,7 @@ module.exports = function(config) {
         },
 
         /**
-         * request recovery of an existing account
+         * request recovery of an existing user
          *
          * @param {ObjectId} user
          * @param {function(err, data)} cb
@@ -794,7 +811,7 @@ module.exports = function(config) {
         },
 
         /**
-         * pre reset account, consumes the token
+         * pre reset user, consumes the token
          *
          * @param {ObjectId} user
          * @param {function(err, data)} cb

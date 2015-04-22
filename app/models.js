@@ -11,7 +11,7 @@ module.exports = function(config) {
     var tagConfig = {};
     var Tag = require('./models/tag.js')(tagConfig);
 
-    var projectConfig = config.project;
+    var projectConfig = config.models.project;
     var Project = require('./models/project.js')(projectConfig);
 
     var models = {

@@ -19,12 +19,16 @@ var SearchCtrl = require('./app/controllers/search');
 
 // clients
 var Github = require('./app/clients/github.js');
-var github = new Github();
+var github = new Github(config.clients.github);
+
+var oauthProviders = {
+    github: github
+};
 
 var controllers = {
     auth: new AuthCtrl(config, models.User),
     user: new UserCtrl(config, models.User, github),
-    oauth: new OAuthCtrl(config, models.OauthState, models.User, github),
+    oauth: new OAuthCtrl(config, oauthProviders, models.OAuthState, models.User),
     tag: new TagCtrl(config, models.Tag),
     project: new ProjectCtrl(config, models.Project, models.Tag),
     search: new SearchCtrl(config, models.Project, models.Tag),
