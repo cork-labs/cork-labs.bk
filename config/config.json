@@ -8,7 +8,7 @@
         "url": "http://cork-labs.org/"
     },
     "db": {
-        "connection": "mongodb://localhost/cork_labs_jarvis"
+        "connection": "mongodb://localhost/cork_labs_bk"
     },
     "models": {
         "project": {

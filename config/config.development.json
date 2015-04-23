@@ -5,7 +5,7 @@
         "url": "http://cork-labs.local.org/"
     },
     "db": {
-        "connection": "mongodb://localhost/cork_labs_jarvis_dev"
+        "connection": "mongodb://localhost/cork_labs_bk_dev"
     },
     "models": {
         "project": {
