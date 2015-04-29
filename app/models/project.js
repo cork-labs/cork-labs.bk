@@ -19,7 +19,7 @@ module.exports = function(config) {
     var ASSET_NAMES = ['repo', 'docs', 'coverage', 'demo', 'travis'];
 
     /**
-     * constants -fields updated transparently on instance.update(data)
+     * constants - fields updated transparently on instance.update(data)
      */
     var UPDATE_PROPERTIES = ['name', 'description', 'readme', 'repo', 'path', 'versions']; // @todo update versions more carefully
 

@@ -136,12 +136,30 @@ var ProjectCtrl = function (config, Project, Tag) {
      */
     self.handle.create = function (req, res) {
 
-        var project = new Project(req.body);
-        project.save(function (err) {
-            if (err) {
-                return response.error(res, err);
-            }
-            return response.created(res, project.asObject());
+        var project = new Project();
+        return project.update(req.body, function (newTags, removedTags) {
+
+            project._id = req.body.id;
+            project.status = 'published';
+
+            // update tags (result is ignored)
+            newTags.forEach(function (tag) {
+                Tag.incProjectCount(tag.id, function (res, err) {
+                    console.log('tag: ' + tag.name, ' project count++');
+                });
+            });
+            removedTags.forEach(function (tag) {
+                Tag.decProjectCount(tag.id, function (res, err){
+                    console.log('tag: ' + tag.name, ' project count--');
+                });
+            });
+
+            return project.save(function (err) {
+                if (err) {
+                    return response.error(res, err);
+                }
+                return response.created(res, project.asObject());
+            });
         });
     };
 
@@ -154,8 +172,8 @@ var ProjectCtrl = function (config, Project, Tag) {
      */
     self.handle.update = function (req, res) {
 
-        req.project.update(req.body, function (newTags, removedTags) {
-            req.project.save(function (err) {
+        return req.project.update(req.body, function (newTags, removedTags) {
+            return req.project.save(function (err) {
                 if (err) {
                     return response.error(res, err);
                 }
@@ -191,11 +209,11 @@ var ProjectCtrl = function (config, Project, Tag) {
             page: page
         };
 
-        Project.list(options, function (err, projects) {
+        return Project.list(options, function (err, projects) {
             if (err) {
                 return response.error(res, err);
             }
-            Project.count().exec(function (err, count) {
+            return Project.count().exec(function (err, count) {
                 projects = projects.map(function (project) {
                     return project.asObject();
                 });
@@ -224,11 +242,11 @@ var ProjectCtrl = function (config, Project, Tag) {
             offset: offset,
             limit: limit
         };
-        Project.search(options, function (err, projects) {
+        return Project.search(options, function (err, projects) {
             if (err) {
                 return response.error(res, err);
             }
-            Project.count().exec(function (err, count) {
+            return Project.count().exec(function (err, count) {
                 projects = projects.map(function (project) {
                     return project.asObject();
                 });
@@ -346,20 +364,20 @@ var ProjectCtrl = function (config, Project, Tag) {
         var destination = path.join(config.project.storePath, req.project.id, req.body.tag);
 
         // remove symlink
-        unlinkCurrentVersion(source, function (err) {
+        return unlinkCurrentVersion(source, function (err) {
             if (err) {
                 return response.error(res, err);
             }
 
             // create new symlink
-            linkCurrentVersion(destination, source, function (err) {
+            return linkCurrentVersion(destination, source, function (err) {
                 if (err) {
                     return response.error(res, err);
                 }
 
                 // update project
                 req.project.currentVersionTag = req.body.tag;
-                req.project.save(function (err) {
+                return req.project.save(function (err) {
                     if (err) {
                         return response.error(res, err);
                     }
