@@ -126,6 +126,17 @@ module.exports = function(config) {
         },
 
         /**
+         * find tag by name
+         *
+         * @param {string} name
+         * @param {function(err, data)} cb
+         */
+        findByName: function (name, cb) {
+            return this.findOne({ name : name })
+                .exec(cb);
+        },
+
+        /**
          * list tags
          *
          * @param {Object} options

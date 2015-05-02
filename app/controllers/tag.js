@@ -34,6 +34,26 @@ var TagCtrl = function (config, Tag) {
         });
     };
 
+    /**
+     * loads a tag by name
+     *
+     * @expects req.params.tagName
+     * @populates req.tag
+     */
+    self.prepare.loadTagByName = function (req, res, next) {
+        var name = req.param('tagName');
+        Tag.findByName(name, function (err, tag) {
+            if (err) {
+                return response.error(res, err);
+            }
+            if (!tag) {
+                return response.notFound(res);
+            }
+            req.tag = tag;
+            return next();
+        });
+    };
+
 
     // -- validation middlewares
 

@@ -77,6 +77,10 @@ var Router = function (config, ctrls) {
             .get(ctrls.tag.prepare.loadTagById)
             .get(ctrls.tag.handle.get);
 
+        exp.route('/tag/-by-name/:tagName')
+            .get(ctrls.tag.prepare.loadTagByName)
+            .get(ctrls.tag.handle.get);
+
         exp.route('/tag')
             .post(ctrls.tag.handle.create);
 
@@ -92,6 +96,16 @@ var Router = function (config, ctrls) {
         // exp.route('/project')
         //     .post(ctrls.project.handle.create);
 
+        exp.route('/project')
+            .post(ctrls.project.handle.create);
+
+        exp.route('/project/search')
+            .post(ctrls.project.handle.search);
+
+        exp.route('/project/:projectId')
+            .put(ctrls.project.prepare.loadProjectById)
+            .put(ctrls.project.handle.update);
+
         exp.route('/project/:projectId')
             .get(cors.all)
             .get(ctrls.project.prepare.loadProjectById)
@@ -102,12 +116,6 @@ var Router = function (config, ctrls) {
             .get(ctrls.project.prepare.loadProjectById)
             .get(ctrls.project.handle.getProjectVersions);
 
-        exp.route('/project')
-            .post(ctrls.project.handle.create);
-
-        exp.route('/project/search')
-            .post(ctrls.project.handle.search);
-
         exp.route('/project/:projectId/build')
             .post(ctrls.project.prepare.loadProjectById)
             .post(timeout(1200000))
@@ -116,10 +124,6 @@ var Router = function (config, ctrls) {
         exp.route('/project/:projectId/current-version')
             .post(ctrls.project.prepare.loadProjectById)
             .post(ctrls.project.handle.setCurrentVersion);
-
-        exp.route('/project/:projectId')
-            .put(ctrls.project.prepare.loadProjectById)
-            .put(ctrls.project.handle.update);
 
         // exp.route('/project/:projectId')
         //     .delete(ctrls.project.prepare.loadProjectById)
