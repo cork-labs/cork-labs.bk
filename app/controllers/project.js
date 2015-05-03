@@ -37,7 +37,7 @@ var ProjectCtrl = function (config, Project, Tag) {
     }
 
     function buildProject(project, tag, shellCmd, cb) {
-        var remote = project.repo;
+        var remote = project.getAssetUrl('repo');
         var tmpPath = path.join('/tmp', project.id, uuid.v4());
         var repo = new GitRepo(remote, tmpPath, tag);
         return repo.clone(function (err) {
