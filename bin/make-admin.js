@@ -5,7 +5,8 @@ var async = require('async');
 // -- shell arguments
 
 var args;
-var shell = new commandLine('setup');
+var shell = new commandLine('make-admin');
+shell.addArgument('id', {type: 'string', required: true});
 
 try {
     args = shell.parse.apply(shell, process.argv);
@@ -28,29 +29,24 @@ var models = bootstrap.models;
 var steps = [
 
     /**
-     * empty collections
+     * make admin
      */
     function (next) {
         async.parallel([
             function (next) {
-                console.log('empty collection: "Project"');
-                models.Project.collection.remove(next);
+                console.log('make admin: "' + args.id + '"');
+                models.User.findById(args.id, function (err, user) {
+                    if (err) { 
+                        next(err); 
+                    }
+                    else {
+                        user.roles.push('admin');
+                        user.save(next);
+                    }
+                });
             }
         ], next);
     },
-
-    /**
-     * create project
-     */
-    function (next) {
-        async.parallel([
-            function (next) {
-                console.log('create project: "Cork Labs Bot"');
-                models.Project.create('cork-labs.bot.bk', 'published', 'Cork Labs Bot', '/servers/andre/az/cork-store/cork-labs.bot.bk', 'git@github.com:cork-labs/cork-labs.bot.bk.git', next);
-            }
-        ], next);
-    }
-
 ];
 
 async.series(steps, function (err) {
@@ -63,3 +59,4 @@ async.series(steps, function (err) {
         process.exit();
     }
 });
+
