@@ -1,7 +1,7 @@
 {
-  "name": "cork-labs.bot.bk",
+  "name": "cork-labs.bk",
   "version": "0.0.3",
-  "description": "Backend code for Cork Labs helper bot.",
+  "description": "Backend code and tools for the Cork Labs website.",
   "author": {
     "name": "Cork Labs",
     "url": "http://cork-labs.org/"
