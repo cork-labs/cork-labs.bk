@@ -42,6 +42,7 @@ var ProjectCtrl = function (config, Project, Tag) {
         var repo = new GitRepo(remote, tmpPath, tag);
         return repo.clone(function (err) {
             if (err) {
+                console.log('### project.buildProject - repo.clone', [project._id, tag, shellCmd], 'Error:', err);
                 return cb(err);
             }
             else {
@@ -49,9 +50,11 @@ var ProjectCtrl = function (config, Project, Tag) {
                     cwd: tmpPath
                 };
                 return cp.exec(shellCmd, options, function (err) {
+                    console.log('### project.buildProject - cp.exec', [project._id, tag, shellCmd], 'Error:', err);
                     if (err) {
                         return cb(err);
                     }
+                    console.log('<', tmpPath)
                     return cb(null, tmpPath);
                 });
             }
@@ -69,17 +72,23 @@ var ProjectCtrl = function (config, Project, Tag) {
 
     function publishProjectBuild(project, buildPath, storePath, tag, cb) {
         var projectPath = path.join(storePath, project.id);
+        console.log('### project.buildProject - publish.mkdir', [project._id, buildPath, storePath, tag]);
         return mkdirp(projectPath, 0755, function (err) {
             if (err) {
+                console.log('### project.buildProject - publish.mkdir', [project._id, buildPath, storePath, tag], 'Error:', err);
                 return response.error(res, {});
             }
             var destination = path.join(projectPath, tag);
+            console.log('### project.buildProject - publish.deleteBuild', [project._id, destination]);
             return deletePublishBuild(destination, function (err) {
                 if (err) {
+                    console.log('### project.buildProject - publish.deleteBuild', [project._id, destination], 'Error:', err);
                     return cb(err);
                 }
+                console.log('### project.buildProject - publish.rename', [project._id, buildPath, destination]);
                 return fs.rename(buildPath, destination, function (err) {
                     if (err) {
+                        console.log('### project.buildProject - publish.rename', [project._id, buildPath, destination], 'Error:', err);
                         return cb(err);
                     }
                     return cb(null, destination);
@@ -318,23 +327,25 @@ var ProjectCtrl = function (config, Project, Tag) {
         // build project into tmp dir
         return buildProject(req.project, req.body.tag, buildCmd, function (err, tmpPath) {
             if (err) {
-                return response.error(res, {});
+                return response.error(res, err);
             }
 
             // https://github.com/expressjs/timeout
-            if (!req.timedout) {
+            //if (!req.timedout) {
 
-                // copy project to http server public
-                var storePath = config.project.storePath;
-                // @todo magic string, should come from config
-                var buildPath = path.join(tmpPath, 'build');
-                return publishProjectBuild(req.project, buildPath, storePath, req.body.tag, function (err) {
-                    if (err) {
-                        return response.error(res, {});
-                    }
-                    return response.noContent(res);
-                });
-            }
+            // copy project to http server public
+            var storePath = config.models.project.storePath;
+            // @todo magic string, should come from config
+            var buildPath = path.join(tmpPath, 'build');
+            console.log('### project.buildProject - publish', [req.project._id, buildPath, storePath, req.body.tag]);
+            return publishProjectBuild(req.project, buildPath, storePath, req.body.tag, function (err) {
+                if (err) {
+                    console.log('### project.buildProject - publish', [req.project._id, buildPath, storePath, req.body.tag], 'Error:', err);
+                    return response.error(res, err);
+                }
+                return response.noContent(res);
+            });
+            //}
         });
     };
 
@@ -360,8 +371,8 @@ var ProjectCtrl = function (config, Project, Tag) {
             return response.error(res, error);
         }
 
-        var source = path.join(config.project.storePath, req.project.id, 'current');
-        var destination = path.join(config.project.storePath, req.project.id, req.body.tag);
+        var source = path.join(config.models.project.storePath, req.project.id, 'current');
+        var destination = path.join(config.models.project.storePath, req.project.id, req.body.tag);
 
         // remove symlink
         return unlinkCurrentVersion(source, function (err) {
