@@ -14,8 +14,6 @@ function normalizeError(err, detailsOrMessage) {
         error.message = detailsOrMessage;
     }
 
-    console.log('ERROR', error);
-
     /**
      * string errors
      */
@@ -135,11 +133,13 @@ var response = {
             payload.meta = meta;
         }
         res.json(200, payload);
+        console.log('  > data > ', payload);
     },
 
     created: function (res, data) {
+        var payload;
         if (data) {
-            var payload = {
+            payload = {
                 data: data
             };
             res.json(201, payload);
@@ -148,11 +148,13 @@ var response = {
             res.status(201);
             res.send();
         }
+        console.log('  > created > ', payload);
     },
 
     accepted: function (res, data) {
+        var payload;
         if (data) {
-            var payload = {
+            payload = {
                 data: data
             };
             res.json(202, payload);
@@ -161,16 +163,19 @@ var response = {
             res.status(202);
             res.send();
         }
+        console.log('  > accepted > ', payload);
     },
 
     noContent: function (res) {
         res.status(204);
         res.send();
+        console.log('  > noContent');
     },
 
     unauthorized: function (res) {
         res.status(401);
         res.send();
+        console.log('  > unauthorized');
     },
 
     notFound: function (res) {
@@ -181,6 +186,7 @@ var response = {
             }
         };
         res.json(404, payload);
+        console.log('  > notFound > ', payload);
     },
 
     timeout: function (res, err) {
@@ -190,6 +196,7 @@ var response = {
             }
         };
         res.json(503, payload);
+        console.log('  > timeout > ', payload);
     },
 
     error: function (res, err, code, details) {
@@ -200,10 +207,12 @@ var response = {
             code = (payload.error.message === 'error.validation') ? 422 : 500;
         }
         res.json(code, payload);
+        console.log('  > error > ', payload);
     },
 
     redirect: function(res, target) {
         res.redirect(target);
+        console.log('  > redirect > ', target);
     },
 }
 
