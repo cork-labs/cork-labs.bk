@@ -7,6 +7,7 @@ var expSession = require('express-session');
 var mongoStore = require('connect-mongo')(expSession);
 
 var winston = require('winston');
+var uuid = require('node-uuid');
 
 var pkg = require('../package.json');
 var domain = require('domain');
@@ -17,6 +18,12 @@ var response = require('./controllers/util/responses');
 var App  = function(exp, config, router) {
 
     exp.set('showStackError', true);
+
+    exp.use(function (req, res, next) {
+        req.uuid = uuid.v4();
+        res.uuid = req.uuid;
+        next();
+    });
 
     // should be placed before express.static
     exp.use(expCompress({
@@ -54,11 +61,11 @@ var App  = function(exp, config, router) {
     exp.use(expBodyParser());
     exp.use(function (req, res, next) {
         if (env === 'development') {
-            console.log('---------------------------');
+            console.log(' -- > ' + req.uuid);
             console.log('  ' + req.method + ' ' + req.path);
             console.log('  params:', req.params);
             console.log('  body', typeof req.body, req.body);
-            console.log('---------------------------');
+            console.log(' -- > ');
             next();
         }
         else if (env === 'production') {
@@ -117,7 +124,7 @@ var App  = function(exp, config, router) {
     this.start = function (port) {
         // Start the app by listening on <port>
         exp.listen(port);
-        console.log('Express app started on port ' + port);
+        console.log('Express app [' + env + '] started on port ' + port);
     };
 
 }

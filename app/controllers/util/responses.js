@@ -83,6 +83,14 @@ function normalizeError(err, detailsOrMessage) {
     return error;
 };
 
+function log(uuid, type, payload) {
+    console.log(' < -- ' + uuid + ' > ' + type);
+    if (payload) {
+        console.log(payload);
+    }
+    console.log(' < -- ');
+}
+
 var response = {
 
     // -- meta helpers
@@ -133,7 +141,7 @@ var response = {
             payload.meta = meta;
         }
         res.json(200, payload);
-        console.log('  > data > ', payload);
+        log(res.uuid, 'data', payload);
     },
 
     created: function (res, data) {
@@ -148,7 +156,7 @@ var response = {
             res.status(201);
             res.send();
         }
-        console.log('  > created > ', payload);
+        log(res.uuid, 'created', payload);
     },
 
     accepted: function (res, data) {
@@ -163,19 +171,19 @@ var response = {
             res.status(202);
             res.send();
         }
-        console.log('  > accepted > ', payload);
+        log(res.uuid, 'accepted', payload);
     },
 
     noContent: function (res) {
         res.status(204);
         res.send();
-        console.log('  > noContent');
+        log(res.uuid, 'noContent');
     },
 
     unauthorized: function (res) {
         res.status(401);
         res.send();
-        console.log('  > unauthorized');
+        log(res.uuid, 'unauthorized');
     },
 
     notFound: function (res) {
@@ -186,7 +194,7 @@ var response = {
             }
         };
         res.json(404, payload);
-        console.log('  > notFound > ', payload);
+        log(res.uuid, 'notFound', payload);
     },
 
     timeout: function (res, err) {
@@ -196,7 +204,7 @@ var response = {
             }
         };
         res.json(503, payload);
-        console.log('  > timeout > ', payload);
+        log(res.uuid, 'timeout', payload);
     },
 
     error: function (res, err, code, details) {
@@ -207,12 +215,12 @@ var response = {
             code = (payload.error.message === 'error.validation') ? 422 : 500;
         }
         res.json(code, payload);
-        console.log('  > error > ', payload);
+        log(res.uuid, 'error', payload);
     },
 
     redirect: function(res, target) {
         res.redirect(target);
-        console.log('  > redirect > ', target);
+        log(res.uuid, 'redirect', target);
     },
 }
 
