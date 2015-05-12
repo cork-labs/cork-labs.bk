@@ -36,23 +36,34 @@ var ProjectCtrl = function (config, Project, Tag) {
         fs.symlink(source, destination, 'dir', cb);
     }
 
-    function buildProject(project, tag, shellCmd, cb) {
+    function buildProject(uuid, project, tag, shellCmd, cb) {
+
         var remote = project.getAssetUrl('repo');
-        var tmpPath = path.join('/tmp', project.id, uuid.v4());
+
+        var tmpPath = path.join('/tmp', project.id, uuid);
+
         var repo = new GitRepo(remote, tmpPath, tag);
+        console.log('### project.buildProject', [uuid, project._id, tag, shellCmd]);
         return repo.clone(function (err) {
             if (err) {
-                console.log('### project.buildProject - repo.clone', [project._id, tag, shellCmd], 'Error:', err);
+                console.log('### project.buildProject - repo.clone', [uuid, project._id, tag, shellCmd], 'Error:', err);
                 return cb(err);
             }
             else {
                 var options = {
                     cwd: tmpPath
                 };
-                return cp.exec(shellCmd, options, function (err) {
-                    console.log('### project.buildProject - cp.exec', [project._id, tag, shellCmd], 'Error:', err);
-                    if (err) {
-                        return cb(err);
+                var child = cp.exec(shellCmd, options);
+                child.stdout.on('data', function(data) {
+                    console.log('stdout: ' + data);
+                });
+                child.stderr.on('data', function(data) {
+                    console.log('stderr: ' + data);
+                });
+                child.on('close', function(code) {
+                    if (code) {
+                        console.log('### project.buildProject - cp.exec', [uuid, project._id, tag, shellCmd], 'Error:', child.stderr);
+                        return cb(child.stderr);
                     }
                     console.log('<', tmpPath)
                     return cb(null, tmpPath);
@@ -70,25 +81,25 @@ var ProjectCtrl = function (config, Project, Tag) {
         }
     }
 
-    function publishProjectBuild(project, buildPath, storePath, tag, cb) {
+    function publishProjectBuild(uuid, project, buildPath, storePath, tag, cb) {
         var projectPath = path.join(storePath, project.id);
-        console.log('### project.buildProject - publish.mkdir', [project._id, buildPath, storePath, tag]);
+        console.log('### project.buildProject.publish', [uuid, project._id, buildPath, storePath, tag]);
         return mkdirp(projectPath, 0755, function (err) {
             if (err) {
-                console.log('### project.buildProject - publish.mkdir', [project._id, buildPath, storePath, tag], 'Error:', err);
+                console.log('### project.buildProject.publish.mkdir', [uuid, project._id, buildPath, storePath, tag], 'Error:', err);
                 return response.error(res, {});
             }
             var destination = path.join(projectPath, tag);
-            console.log('### project.buildProject - publish.deleteBuild', [project._id, destination]);
+            console.log('### project.buildProject.publish.deleteBuild', [uuid, project._id, destination]);
             return deletePublishBuild(destination, function (err) {
                 if (err) {
-                    console.log('### project.buildProject - publish.deleteBuild', [project._id, destination], 'Error:', err);
+                    console.log('### project.buildProject.publish.deleteBuild', [uuid, project._id, destination], 'Error:', err);
                     return cb(err);
                 }
-                console.log('### project.buildProject - publish.rename', [project._id, buildPath, destination]);
+                console.log('### project.buildProject.publish.rename', [uuid, project._id, buildPath, destination]);
                 return fs.rename(buildPath, destination, function (err) {
                     if (err) {
-                        console.log('### project.buildProject - publish.rename', [project._id, buildPath, destination], 'Error:', err);
+                        console.log('### project.buildProject.publish.rename', [uuid, project._id, buildPath, destination], 'Error:', err);
                         return cb(err);
                     }
                     return cb(null, destination);
@@ -325,7 +336,7 @@ var ProjectCtrl = function (config, Project, Tag) {
         var buildCmd = './jarvis.sh';
 
         // build project into tmp dir
-        return buildProject(req.project, req.body.tag, buildCmd, function (err, tmpPath) {
+        return buildProject(req.uuid, req.project, req.body.tag, buildCmd, function (err, tmpPath) {
             if (err) {
                 return response.error(res, err);
             }
@@ -337,10 +348,9 @@ var ProjectCtrl = function (config, Project, Tag) {
             var storePath = config.models.project.storePath;
             // @todo magic string, should come from config
             var buildPath = path.join(tmpPath, 'build');
-            console.log('### project.buildProject - publish', [req.project._id, buildPath, storePath, req.body.tag]);
-            return publishProjectBuild(req.project, buildPath, storePath, req.body.tag, function (err) {
+            return publishProjectBuild(req.uuid, req.project, buildPath, storePath, req.body.tag, function (err) {
                 if (err) {
-                    console.log('### project.buildProject - publish', [req.project._id, buildPath, storePath, req.body.tag], 'Error:', err);
+                    console.log('### project.buildProject - publish', [req.uuid, req.project._id, buildPath, storePath, req.body.tag], 'Error:', err);
                     return response.error(res, err);
                 }
                 return response.noContent(res);
